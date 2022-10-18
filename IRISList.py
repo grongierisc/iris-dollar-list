@@ -9,6 +9,7 @@ import struct
 class _ListItem(object):
     """
     This class is used to store the information about a list item.
+
     """
 
     ITEM_UNDEF = -1;
@@ -33,6 +34,10 @@ class _ListItem(object):
     data_offset: int = 0
     data_length: int = 0
 
+    def __post_init__(self):
+        # init list_buffer_end with the length of the buffer
+        self.list_buffer_end = len(self.buffer)
+
 
 class _ListReader(object):
 
@@ -49,18 +54,18 @@ class _ListReader(object):
         else:
             return self._get(self.list_item,self._locale)
 
-    def _get(self, item, locale, as_bytes = False, retain_ascii_zero = False):
-        if item.is_null:
+    def _get(self, as_bytes = False, retain_ascii_zero = False):
+        self.list_item = self._get_list_element(self.list_item)
+        if self.list_item.is_null:
             return None
-        func = self._get_switcher.get(item.type, None)
+        func = self._get_switcher.get(self.list_item.type, None)
         if func is None:
-            raise Exception("Incorrect list format, unknown type: " + item.type)
+            raise Exception("Incorrect list format, unknown type: " + self.list_item.type)
         else:
-            return func(item.buffer, item.data_offset, item.data_length, locale, as_bytes, retain_ascii_zero)
+            return func(self,self.list_item.buffer, self.list_item.data_offset, self.list_item.data_length, self._locale, as_bytes, retain_ascii_zero)
 
 
     def _get_raw_bytes(self, length):
-        self.is_null = False
         self.list_item.type = _ListItem.ITEM_PLACEHOLDER
         self.list_item.data_offset = 0
         self.list_item.data_length = 0
@@ -72,7 +77,7 @@ class _ListReader(object):
 
     def _get_at_offset(self, offset, as_bytes = False):
         self.list_item.next_offset = offset
-        return self._get(self.list_item, self._locale, as_bytes)
+        return self._get(as_bytes)
 
     def _move_to_end(self):
         self.list_item.next_offset = self.list_item.list_buffer_end 
@@ -149,7 +154,7 @@ class _ListReader(object):
             item.next_offset = item.data_offset + item.data_length
             item.is_null = (item.type == _ListItem.ITEM_PLACEHOLDER) or ((item.type == _ListItem.ITEM_ASCII) and (item.data_length == 0))
             item.is_undefined = False
-        return
+        return item
 
     def _get_data_offset(self, buffer, offset):
         if buffer[offset] != 0:
@@ -214,6 +219,11 @@ class _ListReader(object):
             scale -= 256
         return self.__parse_decimal(scale, num)
 
+    def __parse_decimal(self, scale, num):
+        decstr = str(num) + "E" + str(scale)
+        dec = decimal.Decimal(decstr)
+        return dec
+
     def _grab_double(self, buffer, offset, length, *args):
         if length != 8: return self.__grab_compact_float(buffer, offset, length)
         return struct.unpack('d', buffer[offset:offset+length])[0]
@@ -224,19 +234,139 @@ class _ListReader(object):
     def __grab_compact_float(self, buffer, offset, length):
         return struct.unpack('f',b'\x00\x00\x00\x00'[length:]+buffer[offset:offset+length])[0]
 
-    def _set(self, buffer, offset, data, locale, is_unicode, compact_double):
+    _get_switcher = {
+        _ListItem.ITEM_ASCII: _grab_ascii_string,
+        _ListItem.ITEM_UNICODE: _grab_unicode_string,
+        _ListItem.ITEM_POSINT: _grab_pos_integer,
+        _ListItem.ITEM_NEGINT: _grab_neg_integer,
+        _ListItem.ITEM_POSNUM: _grab_pos_number,
+        _ListItem.ITEM_NEGNUM: _grab_neg_number,
+        _ListItem.ITEM_DOUBLE: _grab_double,
+        _ListItem.ITEM_COMPACT_DOUBLE: _grab_compact_double
+    }
+
+class _ListWriter(object):
+
+    CHUNKSIZE = 256
+
+    HOROLOG_ORDINAL = datetime.date(1840, 12, 31).toordinal()
+
+    _estimate_size_switcher = {
+        type(None): 2,
+        bool: 3,
+        int: 10,
+        float: 10,
+        decimal.Decimal: 11
+    }
+
+    def __init__(self, locale = "latin-1", is_unicode = True, compact_double = False):
+        self.buffer = bytearray(self.CHUNKSIZE)
+        self.offset = 0
+        self._locale = locale
+        self._is_unicode = is_unicode
+        self._compact_double = compact_double
+
+    def _clear_list(self):
+        self.offset = 0
+
+    def _set(self, data, retain_empty_string=False):
+        if retain_empty_string and type(data) == str and len(data) == 0:
+            self._set_null()
+        else:
+            self.__check_buffer_size(self.__estimate_size(data))
+            self.offset = self._set_offset(self.buffer, self.offset, data, self._locale, self._is_unicode, self._compact_double)
+        return
+
+    def _set_list(self, data):
+        if data is None:
+            self._set_null()
+        else:
+            self.__check_buffer_size(data.offset)
+            self.offset = self._stuff_bytes(self.buffer, self.offset, data._get_buffer())
+
+    def _set_undefined(self):
+        self.__check_buffer_size(1)
+        self.offset = self._set_undefined_offset(self.buffer, self.offset)
+
+    def _set_null(self):
+        self.__check_buffer_size(2)
+        self.offset = self._set_null_offset(self.buffer, self.offset)
+
+    def _set_offset(self, buffer, offset, data, locale, is_unicode, compact_double):
         func = self._set_switcher.get(type(data), None)
         if func is None:
             raise Exception("Unsupported argument type: " + str(type(data)))
         else:
             return func(buffer, offset, data, locale, is_unicode, compact_double)
 
-    def _set_undefined(self, buffer, offset):
+    def _set_undefined_offset(self, buffer, offset):
         buffer[offset] = 1
         return offset + 1
 
-    def _set_null(self, buffer, offset):
+    def _set_null_offset(self, buffer, offset):
         return self._stuff_null(buffer, offset)
+
+    def _set_raw_bytes(self, data):
+        length = len(data)
+        self.__check_buffer_size(length)
+        self.buffer[self.offset:self.offset+length] = data[0:length]
+        self.offset = self.offset + length
+        return
+
+    def _set_stream(self, stream):
+        raise NotImplementedError("Stream functionality not yet available with dbapi")
+    
+    def _set_date_h(self, date):
+        if isinstance(date, datetime.date):
+            date_h = date.toordinal() - _ListWriter.HOROLOG_ORDINAL
+            self._set(date_h)
+        else:
+            self._set(date)
+
+    def _set_time_h(self, time):
+        if isinstance(time, datetime.time) or isinstance(time, datetime.datetime):
+            time_h = 3600 * time.hour + 60 * time.minute + time.second
+            self._set(time_h)
+        else:
+            self._set(time)
+
+    def _set_posix(self, timestamp):
+        if isinstance(timestamp, datetime.datetime):
+            self._set(timestamp.timestamp())
+        else:
+            self._set(timestamp)
+
+    def _size(self):
+        return self.offset
+
+    def _get_buffer(self):
+        return self.buffer[0:self.offset]
+
+    def __estimate_size(self, data):
+        if type(data) == int and (data > 0x7fffffffffffffff or data < -0x8000000000000000):
+            data = str(data)
+        if type(data) is str or type(data) is bytes or type(data) is bytearray:
+            estimated = len(data)*2+8
+        else:
+            estimated = self._estimate_size_switcher.get(type(data), 0)
+        return estimated
+
+    def __check_buffer_size(self, additional):
+        if self.offset + additional > len(self.buffer):
+            size_needed = self.offset + additional
+            size_to_allocate = len(self.buffer)*2
+            while True:
+                if size_to_allocate > size_needed:
+                    break
+                size_to_allocate = size_to_allocate*2
+            new_buffer = bytearray(size_to_allocate)
+            new_buffer[0:len(self.buffer)] = self.buffer
+            self.buffer = new_buffer
+        return
+
+    def _save_current_offset(self):
+        self.__saved_offset = self.offset
+        return
 
     def _stuff_null(self, buffer, offset, data = None, *args):
         buffer[offset] = 2
@@ -472,27 +602,11 @@ class _ListReader(object):
         buffer[offset:offset+length] = ascii
         return offset + length
 
-    def __parse_decimal(self, scale, num):
-        decstr = str(num) + "E" + str(scale)
-        dec = decimal.Decimal(decstr)
-        return dec
-
     def __get_bitlength(self, value):
         if value < 0:
             return (value + 1).bit_length()
         else:
             return value.bit_length()
-
-    _get_switcher = {
-        _ListItem.ITEM_ASCII: _grab_ascii_string,
-        _ListItem.ITEM_UNICODE: _grab_unicode_string,
-        _ListItem.ITEM_POSINT: _grab_pos_integer,
-        _ListItem.ITEM_NEGINT: _grab_neg_integer,
-        _ListItem.ITEM_POSNUM: _grab_pos_number,
-        _ListItem.ITEM_NEGNUM: _grab_neg_number,
-        _ListItem.ITEM_DOUBLE: _grab_double,
-        _ListItem.ITEM_COMPACT_DOUBLE: _grab_compact_double
-    }
 
     _set_switcher = {
         type(None): _stuff_null,
@@ -504,115 +618,6 @@ class _ListReader(object):
         decimal.Decimal: _stuff_decimal,
         str: _stuff_str
     }
-
-class _ListWriter(object):
-
-    CHUNKSIZE = 256
-
-    HOROLOG_ORDINAL = datetime.date(1840, 12, 31).toordinal()
-
-    _estimate_size_switcher = {
-        type(None): 2,
-        bool: 3,
-        int: 10,
-        float: 10,
-        decimal.Decimal: 11
-    }
-
-    def __init__(self, locale = "latin-1", is_unicode = True, compact_double = False):
-        self.buffer = bytearray(self.CHUNKSIZE)
-        self.offset = 0
-        self._locale = locale
-        self._is_unicode = is_unicode
-        self._compact_double = compact_double
-
-    def _clear_list(self):
-        self.offset = 0
-
-    def _set(self, data, retain_empty_string=False):
-        if retain_empty_string and type(data) == str and len(data) == 0:
-            self._set_null()
-        else:
-            self.__check_buffer_size(self.__estimate_size(data))
-            self.offset = _ListReader._set(self.buffer, self.offset, data, self._locale, self._is_unicode, self._compact_double)
-        return
-
-    def _set_list(self, data):
-        if data is None:
-            self._set_null()
-        else:
-            self.__check_buffer_size(data.offset)
-            self.offset = _IRISList._stuff_bytes(self.buffer, self.offset, data._get_buffer())
-
-    def _set_undefined(self):
-        self.__check_buffer_size(1)
-        self.offset = _IRISList._set_undefined(self.buffer, self.offset)
-
-    def _set_null(self):
-        self.__check_buffer_size(2)
-        self.offset = _IRISList._set_null(self.buffer, self.offset)
-
-    def _set_raw_bytes(self, data):
-        length = len(data)
-        self.__check_buffer_size(length)
-        self.buffer[self.offset:self.offset+length] = data[0:length]
-        self.offset = self.offset + length
-        return
-
-    def _set_stream(self, stream):
-        raise NotImplementedError("Stream functionality not yet available with iris.dbapi")
-    
-    def _set_date_h(self, date):
-        if isinstance(date, datetime.date):
-            date_h = date.toordinal() - _ListWriter.HOROLOG_ORDINAL
-            self._set(date_h)
-        else:
-            self._set(date)
-
-    def _set_time_h(self, time):
-        if isinstance(time, datetime.time) or isinstance(time, datetime.datetime):
-            time_h = 3600 * time.hour + 60 * time.minute + time.second
-            self._set(time_h)
-        else:
-            self._set(time)
-
-    def _set_posix(self, timestamp):
-        if isinstance(timestamp, datetime.datetime):
-            self._set(timestamp.timestamp())
-        else:
-            self._set(timestamp)
-
-    def _size(self):
-        return self.offset
-
-    def _get_buffer(self):
-        return self.buffer[0:self.offset]
-
-    def __estimate_size(self, data):
-        if type(data) == int and (data > 0x7fffffffffffffff or data < -0x8000000000000000):
-            data = str(data)
-        if type(data) is str or type(data) is bytes or type(data) is bytearray:
-            estimated = len(data)*2+8
-        else:
-            estimated = self._estimate_size_switcher.get(type(data), 0)
-        return estimated
-
-    def __check_buffer_size(self, additional):
-        if self.offset + additional > len(self.buffer):
-            size_needed = self.offset + additional
-            size_to_allocate = len(self.buffer)*2
-            while True:
-                if size_to_allocate > size_needed:
-                    break
-                size_to_allocate = size_to_allocate*2
-            new_buffer = bytearray(size_to_allocate)
-            new_buffer[0:len(self.buffer)] = self.buffer
-            self.buffer = new_buffer
-        return
-
-    def _save_current_offset(self):
-        self.__saved_offset = self.offset
-        return
 
 class _IRISList(object):
     """
@@ -635,7 +640,7 @@ class _IRISList(object):
                 # Assume it's a byte array
                 list_reader = _ListReader(buffer, locale)
                 while not list_reader._is_end():
-                    value = list_reader._get(True)
+                    value = list_reader._get(False,self._locale)
                     if value is None and list_reader.list_item.type is not _ListItem.ITEM_UNDEF:
                         value = bytes()
                     self._list_data.append(value)
@@ -644,330 +649,330 @@ class _IRISList(object):
             raise ex
 
 
-    def get(self, index):
-        """
-        Returns the value at a given index.
+#     def get(self, index):
+#         """
+#         Returns the value at a given index.
 
-        get(index)
+#         get(index)
 
-        Parameters
-        ----------
-        index : one-based index of the IRISList.
+#         Parameters
+#         ----------
+#         index : one-based index of the IRISList.
 
-        Return Value
-        ------------
-        Returns bytes, Decimal, float, int, str, or IRISList.
-        """
-        raw_data = self._list_data[index-1]
-        if type(raw_data) == iris.IRISList:
-            raw_data = raw_data.getBuffer()
-        if type(raw_data) == bytes:
-            return iris.IRIS._convertToString(raw_data, iris.IRIS.MODE_LIST, self._locale)
-        return raw_data
+#         Return Value
+#         ------------
+#         Returns bytes, Decimal, float, int, str, or IRISList.
+#         """
+#         raw_data = self._list_data[index-1]
+#         if type(raw_data) == _IRISList:
+#             raw_data = raw_data.getBuffer()
+#         if type(raw_data) == bytes:
+#             return _convertToString(raw_data, MODE_LIST, self._locale)
+#         return raw_data
 
-    def getBoolean(self, index):
-        """
-        Returns the value at a given index as a boolean.
+#     def getBoolean(self, index):
+#         """
+#         Returns the value at a given index as a boolean.
 
-        getBoolean(index)
+#         getBoolean(index)
 
-        Parameters
-        ----------
-        index : one-based index of the IRISList.
+#         Parameters
+#         ----------
+#         index : one-based index of the IRISList.
 
-        Return Value
-        ------------
-        Returns bool.
-        """
-        raw_data = self._list_data[index-1]
-        if type(raw_data) == iris.IRISList:
-            raw_data = raw_data.getBuffer()
-        return iris.IRIS._convertToBoolean(raw_data, iris.IRIS.MODE_LIST, self._locale)
+#         Return Value
+#         ------------
+#         Returns bool.
+#         """
+#         raw_data = self._list_data[index-1]
+#         if type(raw_data) == IRISList:
+#             raw_data = raw_data.getBuffer()
+#         return _convertToBoolean(raw_data, MODE_LIST, self._locale)
 
-    def getBytes(self, index):
-        """
-Returns the value at a given index as bytes.
+#     def getBytes(self, index):
+#         """
+# Returns the value at a given index as bytes.
 
-getBytes(index)
+# getBytes(index)
 
-Parameters
-----------
-index : one-based index of the IRISList.
+# Parameters
+# ----------
+# index : one-based index of the IRISList.
 
-Return Value
-------------
-Returns bytes.
-"""
-        raw_data = self._list_data[index-1]
-        if type(raw_data) == iris.IRISList:
-            return raw_data.getBuffer()
-        return iris.IRIS._convertToBytes(raw_data, iris.IRIS.MODE_LIST, self._locale, self._is_unicode)
+# Return Value
+# ------------
+# Returns bytes.
+# """
+#         raw_data = self._list_data[index-1]
+#         if type(raw_data) == IRISList:
+#             return raw_data.getBuffer()
+#         return _convertToBytes(raw_data, MODE_LIST, self._locale, self._is_unicode)
 
-    def getDecimal(self, index):
-        """
-Returns the value at a given index as a Decimal.
+#     def getDecimal(self, index):
+#         """
+# Returns the value at a given index as a Decimal.
 
-getDecimal(index)
+# getDecimal(index)
 
-Parameters
-----------
-index : one-based index of the IRISList.
+# Parameters
+# ----------
+# index : one-based index of the IRISList.
 
-Return Value
-------------
-Returns Decimal.
-"""
-        raw_data = self._list_data[index-1]
-        if type(raw_data) == iris.IRISList:
-            raw_data = raw_data.getBuffer()
-        return iris.IRIS._convertToDecimal(raw_data, iris.IRIS.MODE_LIST, self._locale)
+# Return Value
+# ------------
+# Returns Decimal.
+# """
+#         raw_data = self._list_data[index-1]
+#         if type(raw_data) == IRISList:
+#             raw_data = raw_data.getBuffer()
+#         return _convertToDecimal(raw_data, MODE_LIST, self._locale)
 
-    def getFloat(self, index):
-        """
-Returns the value at a given index as a float.
+#     def getFloat(self, index):
+#         """
+# Returns the value at a given index as a float.
 
-getFloat(index)
+# getFloat(index)
 
-Parameters
-----------
-index : one-based index of the IRISList.
+# Parameters
+# ----------
+# index : one-based index of the IRISList.
 
-Return Value
-------------
-Returns float.
-"""
-        raw_data = self._list_data[index-1]
-        if type(raw_data) == iris.IRISList:
-            raw_data = raw_data.getBuffer()
-        return iris.IRIS._convertToFloat(raw_data, iris.IRIS.MODE_LIST, self._locale)
+# Return Value
+# ------------
+# Returns float.
+# """
+#         raw_data = self._list_data[index-1]
+#         if type(raw_data) == IRISList:
+#             raw_data = raw_data.getBuffer()
+#         return _convertToFloat(raw_data, MODE_LIST, self._locale)
 
-    def getInteger(self, index):
-        """
-Returns the value at a given index as an integer.
+#     def getInteger(self, index):
+#         """
+# Returns the value at a given index as an integer.
 
-getInteger(index)
+# getInteger(index)
 
-Parameters
-----------
-index : one-based index of the IRISList.
+# Parameters
+# ----------
+# index : one-based index of the IRISList.
 
-Return Value
-------------
-Returns int.
-"""
-        raw_data = self._list_data[index-1]
-        if type(raw_data) == iris.IRISList:
-            raw_data = raw_data.getBuffer()
-        return iris.IRIS._convertToInteger(raw_data, iris.IRIS.MODE_LIST, self._locale)
+# Return Value
+# ------------
+# Returns int.
+# """
+#         raw_data = self._list_data[index-1]
+#         if type(raw_data) == IRISList:
+#             raw_data = raw_data.getBuffer()
+#         return _convertToInteger(raw_data, MODE_LIST, self._locale)
 
-    def getString(self, index):
-        """
-Returns the value at a given index as a string.
+#     def getString(self, index):
+#         """
+# Returns the value at a given index as a string.
 
-getString(index)
+# getString(index)
 
-Parameters
-----------
-index : one-based index of the IRISList.
+# Parameters
+# ----------
+# index : one-based index of the IRISList.
 
-Return Value
-------------
-Returns str.
-"""
-        raw_data = self._list_data[index-1]
-        if type(raw_data) == iris.IRISList:
-            raw_data = raw_data.getBuffer()
-        return iris.IRIS._convertToString(raw_data, iris.IRIS.MODE_LIST, self._locale)
+# Return Value
+# ------------
+# Returns str.
+# """
+#         raw_data = self._list_data[index-1]
+#         if type(raw_data) == IRISList:
+#             raw_data = raw_data.getBuffer()
+#         return _convertToString(raw_data, MODE_LIST, self._locale)
 
-    def getIRISList(self, index):
-        """
-Returns the value at a given index as an IRISList.
+#     def getIRISList(self, index):
+#         """
+# Returns the value at a given index as an IRISList.
 
-getBytes(index)
+# getBytes(index)
 
-Parameters
-----------
-index : one-based index of the IRISList.
+# Parameters
+# ----------
+# index : one-based index of the IRISList.
 
-Return Value
-------------
-Returns IRISList.
-"""
-        raw_data = self._list_data[index-1]
-        if type(raw_data) == iris.IRISList or raw_data == None:
-            return raw_data
-        return iris.IRISList(iris.IRIS._convertToBytes(raw_data, iris.IRIS.MODE_LIST, self._locale, self._is_unicode), self._locale, self._is_unicode, self.compact_double)
+# Return Value
+# ------------
+# Returns IRISList.
+# """
+#         raw_data = self._list_data[index-1]
+#         if type(raw_data) == IRISList or raw_data == None:
+#             return raw_data
+#         return IRISList(_convertToBytes(raw_data, MODE_LIST, self._locale, self._is_unicode), self._locale, self._is_unicode, self.compact_double)
 
-    def add(self, value):
-        """
-Adds a data element at the end of the IRISList.
+#     def add(self, value):
+#         """
+# Adds a data element at the end of the IRISList.
 
-add(value)
+# add(value)
 
-Parameters
-----------
-value : value of the data to be added.
+# Parameters
+# ----------
+# value : value of the data to be added.
 
-Return Value
-------------
-Returns the current IRISList object.
-"""
-        self._list_data.append(self._convertToInternal(value))
-        return self
+# Return Value
+# ------------
+# Returns the current IRISList object.
+# """
+#         self._list_data.append(self._convertToInternal(value))
+#         return self
 
-    def set(self, index, value):
-        """
-Change data element at a given index location. If the index is beyond the length of the IRISList, IRISList will be first expanded to that many elements, paded with None elements.
+#     def set(self, index, value):
+#         """
+# Change data element at a given index location. If the index is beyond the length of the IRISList, IRISList will be first expanded to that many elements, paded with None elements.
 
-set(index, value)
+# set(index, value)
 
-Parameters
-----------
-index: index at which the data is set to. index is one-based.
-value : value of the data to be added.
+# Parameters
+# ----------
+# index: index at which the data is set to. index is one-based.
+# value : value of the data to be added.
 
-Return Value
-------------
-Returns the current IRISList object.
-"""
-        if index>len(self._list_data):
-            self._list_data.extend([None]*(index-len(self._list_data)))
-        self._list_data[index-1] = self._convertToInternal(value)
-        return self
+# Return Value
+# ------------
+# Returns the current IRISList object.
+# """
+#         if index>len(self._list_data):
+#             self._list_data.extend([None]*(index-len(self._list_data)))
+#         self._list_data[index-1] = self._convertToInternal(value)
+#         return self
 
-    def _convertToInternal(self, value):
-        if type(value) == bytearray:
-            return bytes(value)
-        if type(value) == iris.IRISList:
-            if not self.compact_double and value.compact_double:
-                raise ValueError("Cannot embed an IRISList with Compact Double enabled into an IRISList with Compact Double disabled")
-            return iris.IRISList(value.getBuffer(), value._locale, value._is_unicode, value.compact_double)
-        return value
+#     def _convertToInternal(self, value):
+#         if type(value) == bytearray:
+#             return bytes(value)
+#         if type(value) == IRISList:
+#             if not self.compact_double and value.compact_double:
+#                 raise ValueError("Cannot embed an IRISList with Compact Double enabled into an IRISList with Compact Double disabled")
+#             return IRISList(value.getBuffer(), value._locale, value._is_unicode, value.compact_double)
+#         return value
 
-    def remove(self, index):
-        """
-Remove a data element at a given index location.
+#     def remove(self, index):
+#         """
+# Remove a data element at a given index location.
 
-remove(index, value)
+# remove(index, value)
 
-Parameters
-----------
-index: index at which the data is to be removed. index is one-based.
+# Parameters
+# ----------
+# index: index at which the data is to be removed. index is one-based.
 
-Return Value
-------------
-Returns the current IRISList object.
-"""
-        del self._list_data[index-1]
-        return self
+# Return Value
+# ------------
+# Returns the current IRISList object.
+# """
+#         del self._list_data[index-1]
+#         return self
 
-    def size(self):
-        """
-Return the length of the data buffer
+#     def size(self):
+#         """
+# Return the length of the data buffer
 
-size()
+# size()
 
-Return Value
-------------
-Returns int.
-"""
-        return len(self.getBuffer())
+# Return Value
+# ------------
+# Returns int.
+# """
+#         return len(self.getBuffer())
 
-    def count(self):
-        """
-Return the unmber of data elements in the IRISList.
+#     def count(self):
+#         """
+# Return the unmber of data elements in the IRISList.
 
-count()
+# count()
 
-Return Value
-------------
-Returns int.
-"""
-        return len(self._list_data)
+# Return Value
+# ------------
+# Returns int.
+# """
+#         return len(self._list_data)
 
-    def clear(self):
-        """
-Clears out all data in the IRISList.
+#     def clear(self):
+#         """
+# Clears out all data in the IRISList.
 
-clear()
+# clear()
 
-Return Value
-------------
-Returns the current IRISList object.
-"""
-        self._list_data = []
-        return self
+# Return Value
+# ------------
+# Returns the current IRISList object.
+# """
+#         self._list_data = []
+#         return self
 
-    def equals(self, irislist2):
-        """
-Returns a boolean indicate if the IRISList is the same as the IRISList of the argument
+#     def equals(self, irislist2):
+#         """
+# Returns a boolean indicate if the IRISList is the same as the IRISList of the argument
 
-equals(irislist2)
+# equals(irislist2)
 
-Parameters
-----------
-irislist2: the second IRISList object to which to compare.
+# Parameters
+# ----------
+# irislist2: the second IRISList object to which to compare.
 
-Return Value
-------------
-Returns bool.
-"""
-        if type(irislist2) != iris.IRISList:
-            raise TypeError("Argument must be an instance of iris.IRISList")
-        if len(self._list_data) != len(irislist2._list_data):
-            return False
-        for i in range(len(self._list_data)):
-            if self.get(i+1) != irislist2.get(i+1):
-                return False
-        return True
+# Return Value
+# ------------
+# Returns bool.
+# """
+#         if type(irislist2) != IRISList:
+#             raise TypeError("Argument must be an instance of IRISList")
+#         if len(self._list_data) != len(irislist2._list_data):
+#             return False
+#         for i in range(len(self._list_data)):
+#             if self.get(i+1) != irislist2.get(i+1):
+#                 return False
+#         return True
 
-    def __str__(self):
-        display = ""
-        for i in range(len(self._list_data)):
-            raw_data = self._list_data[i]
-            if type(raw_data) == iris.IRISList:
-                raw_data = raw_data.__str__()
-            elif type(raw_data) == bool:
-                raw_data = 1 if raw_data else 0
-            if type(raw_data) == bytes:
-                try:
-                    if len(raw_data) == 0:
-                        one_value = "empty"
-                    else:
-                        one_value = iris.IRISList(raw_data).__str__()
-                except Exception:
-                    one_value = str(raw_data)
-            elif type(raw_data) == str:
-                try:
-                    if len(raw_data) == 0:
-                        one_value = "empty"
-                    else:
-                        one_value = iris.IRISList(bytes(raw_data,"latin-1")).__str__()
-                except Exception:
-                    one_value = str(raw_data)
-            else:
-                one_value = str(raw_data)
-            display += one_value + ","
-        return "$lb(" + display[0:-1] + ")"
+#     def __str__(self):
+#         display = ""
+#         for i in range(len(self._list_data)):
+#             raw_data = self._list_data[i]
+#             if type(raw_data) == IRISList:
+#                 raw_data = raw_data.__str__()
+#             elif type(raw_data) == bool:
+#                 raw_data = 1 if raw_data else 0
+#             if type(raw_data) == bytes:
+#                 try:
+#                     if len(raw_data) == 0:
+#                         one_value = "empty"
+#                     else:
+#                         one_value = IRISList(raw_data).__str__()
+#                 except Exception:
+#                     one_value = str(raw_data)
+#             elif type(raw_data) == str:
+#                 try:
+#                     if len(raw_data) == 0:
+#                         one_value = "empty"
+#                     else:
+#                         one_value = IRISList(bytes(raw_data,"latin-1")).__str__()
+#                 except Exception:
+#                     one_value = str(raw_data)
+#             else:
+#                 one_value = str(raw_data)
+#             display += one_value + ","
+#         return "$lb(" + display[0:-1] + ")"
 
-    def getBuffer(self):
-        """
-Returns a byte array that contains the $LIST format of all the data elements.
+#     def getBuffer(self):
+#         """
+# Returns a byte array that contains the $LIST format of all the data elements.
 
-getBuffer()
+# getBuffer()
 
-Return Value
-------------
-Returns bytes.
-"""
-        list_writer = iris._ListWriter._ListWriter(self._locale, self._is_unicode, self.compact_double)
-        for i in range(len(self._list_data)):
-            if self._list_data[i] == None:
-                list_writer._set_undefined()
-            elif type(self._list_data[i]) == iris.IRISList:
-                buffer = self._list_data[i].getBuffer()
-                list_writer._set(buffer)
-            else:
-                list_writer._set(self._list_data[i], True)
-        return bytes(list_writer._get_buffer())
+# Return Value
+# ------------
+# Returns bytes.
+# """
+#         list_writer = _ListWriter._ListWriter(self._locale, self._is_unicode, self.compact_double)
+#         for i in range(len(self._list_data)):
+#             if self._list_data[i] == None:
+#                 list_writer._set_undefined()
+#             elif type(self._list_data[i]) == IRISList:
+#                 buffer = self._list_data[i].getBuffer()
+#                 list_writer._set(buffer)
+#             else:
+#                 list_writer._set(self._list_data[i], True)
+#         return bytes(list_writer._get_buffer())
 
