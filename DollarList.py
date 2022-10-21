@@ -74,8 +74,12 @@ class DollarListReader:
                 # check how many bytes are used to store the length
                 # by counting the number of 0 bytes
                 i += 1
+            # meta data length is the number of bytes used to store the length
+            # plus the number of 0 bytes
+            # plus the length itself
+            # plus the type byte
+            meta_offset = 2*i+2
             # cast the length to an integer
-            meta_offset = offset+2*i+2
             meta_value_length = int.from_bytes(self.buffer[offset+i:offset+2*i+1],byteorder='little')
         elif self.buffer[offset] == 1:
             # case where data is null
@@ -217,14 +221,10 @@ class DollarList(DollarListReader):
 
 
 if __name__ == '__main__':
-    data = b'\x03\x01X\x03\x04\x01\t\x01\x07\x01ttest'
-    #data = b'\x07\x04\xFF\xE3\x0B\x54\x02'
-    #data = b'\x02\x01'
-    data = '\x00õ\x01\x01AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
-    data = data.encode('latin-1')
-    #data = b'\x0f\x01AAAAAAAAAAAAA'
-    result = DollarList(data)
-    print(result.to_list())
-    data2 = b'\x00\xf5\x01\x01AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
-    result2 = DollarList(data2)
-    print(result.to_list())
+    payload = b'\x41'*256*256
+    data = b'\x00\x00\x00\x01\x00\x01\x00\x01' + payload
+    data2 = b'\x03\x01t\x03\x01t'
+    data = data + data2
+    reader = DollarListReader(data)
+    for item in reader:
+        print(item)
