@@ -1,21 +1,15 @@
-# DollarList is a List of DollarItems
-# DollarWriter helps to convert python value to the binary representation
-# DollarReader helps to convert binary representation to python value
-
-# Dol
-
-# disable pylint all warnings
-# pylint: disable=all
+# Module that covers the DollarList classes
+# DollarListReader and DollarListWriter
+# DollarItem is a class that is used by the DollarList classes
+# to store the data in a list of objects
+#
 
 from dataclasses import dataclass
-from typing import List, Any, TypeVar, Generic, Type, Union, Optional, Tuple, Dict, Callable
 from enum import Enum
-from io import BytesIO
-from struct import pack, unpack
+import struct
+from typing import Any
 
-T = TypeVar('T')
-
-class DollarType(Enum):
+class Dollartype(Enum):
     ITEM_UNDEF = -1
     ITEM_PLACEHOLDER = 0
     ITEM_ASCII = 1
@@ -28,114 +22,209 @@ class DollarType(Enum):
     ITEM_COMPACT_DOUBLE = 9
 
 @dataclass
-class DollarItem(Generic[T]):
-    type: DollarType
-    value: T
-    data: bytes
+class DollarItem:
+    """
+    A class that represents a dollar item
+    """
+    # type of the item
+    dollar_type: Dollartype = Dollartype.ITEM_UNDEF
+    # value of the item
+    value: Any = None
+    # raw data of the item
+    raw_value: bytes = b''
+    # raw data of the item + meta data
+    buffer: bytes = b''
+    # offset of the item in the list buffer
+    offset: int = 0
+    # length of the item in defined in the meta data
+    meta_value_length: int = 0
+    # length of the meta data
+    meta_offset: int = 0
 
-class DollarList:
+    def __str__(self) -> str:
+        return f'{self.dollar_type} {self.value}'
+
+class DollarListReader:
+
     def __init__(self, buffer:bytes):
         self.buffer = buffer
         self.offset = 0
-        self.length = len(buffer)
-        self.item = DollarItem(DollarType.ITEM_UNDEF, None, b'')
+        self.next_offset = 0
+        self.items = []
+        self.read_buffer()
 
-    def get_item(self) -> DollarItem:
-        if self.offset < self.length:
-            self.item = _get_list_element(self, self.item)
-        return self.item
+    def read_buffer(self):
+        """
+        read the buffer and return a list of DollarItems
+        """
+        while self.next_offset < len(self.buffer):
+            item = self.get_next_item()
+            self.items.append(item)
 
-    def get_next_item(self) -> DollarItem:
-        self.offset = self.item.next_offset
-        return self.get_item()
-
-    def get_next_item_value(self) -> Any:
-        self.offset = self.item.next_offset
-        self.item = _get_list_element(self, self.item)
-        return self.item.value
-
-    def get_next_item_type(self) -> DollarType:
-        self.offset = self.item.next_offset
-        self.item = _get_list_element(self, self.item)
-        return self.item.type
-
-    def get_next_item_data(self) -> bytes:
-        self.offset = self.item.next_offset
-        self.item = _get_list_element(self, self.item)
-        return self.item.data
-
-    def get_next_item_is_null(self) -> bool:
-        self.offset = self.item.next_offset
-        self.item = _get_list_element(self, self.item)
-        return self.item.is_null
-
-    def get_next_item_is_undefined(self) -> bool:
-        self.offset = self.item.next_offset
-        self.item = _get_list_element(self, self.item)
-        return self.item.is_undefined
-
-    def get_next_item_is_string(self) -> bool:
-        self.offset = self.item.next_offset
-        self.item = _get_list_element(self, self.item)
-        return self.item.type == DollarType.ITEM_ASCII or self.item.type == DollarType.ITEM_UNICODE
-
-    def get_next_item_is_number(self) -> bool:
-        self.offset = self.item.next_offset
-        self.item = _get_list_element(self, self.item)
-        return self.item.type == DollarType.ITEM_POSINT or self.item.type == DollarType.ITEM_NEGINT or self.item.type == DollarType.ITEM_POSNUM or self.item.type == DollarType.ITEM_NEGNUM or self.item.type == DollarType.ITEM_DOUBLE or self.item.type == DollarType.ITEM_COMPACT_DOUBLE
-
-    def get_next_item_is_int(self) -> bool:
-        self.offset = self.item.next_offset
-        self.item = _get_list_element(self, self.item)
-        return self
-
-
-class DollarReader:
-    #DollarReader is a helper class to read a binary representation of a DollarList and convert it to a python list
-    def __init__(self, data: bytes):
-        self.data = data
-        self.offset = 0
-
-def _get_list_element(self, item:DollarItem):
-        buffer = item.buffer
-        offset = item.next_offset
-        # if first byte is 0, then length is next 2 bytes
-        if buffer[offset] == 0:
-            length = buffer[offset + 1] | (buffer[offset + 2] << 8);
-            offset += 3
-            # if the length is still 0, then the length is the next 4 bytes
-            if length == 0:
-                length = buffer[offset] | (buffer[offset + 1] << 8) | (buffer[offset + 2] << 16) | (buffer[offset + 3] << 24);
-                offset += 4
-            item.type = buffer[offset]
-            if item.type >= 32 and item.type < 64:
-                item.type = item.type-32
-            item.data_offset = offset + 1
-            item.data_length = length - 1
-            item.next_offset = item.data_offset + item.data_length
-            item.is_null = False
-            item.is_undefined = False
-        elif buffer[offset] == 1:
-            item.type = _ListItem.ITEM_UNDEF
-            if item.type >= 32 and item.type < 64:
-                item.type = item.type-32
-            item.data_offset = offset + 1
-            item.data_length = 0
-            item.next_offset = item.data_offset
-            item.is_null = True
-            item.is_undefined = True
+    def get_item_length(self,offset):
+        """
+        Get the length of the item in the meta data and the length of the meta data
+        """
+        meta_value_length = 0
+        meta_offset = 0
+        if self.buffer[offset] == 0:
+            # case when length is in more than one byte
+            i = 1
+            while self.buffer[offset+i] == 0:
+                # check how many bytes are used to store the length
+                # by counting the number of 0 bytes
+                i += 1
+            # cast the length to an integer
+            meta_offset = offset+2*i+2
+            meta_value_length = int.from_bytes(self.buffer[offset+i:offset+2*i+1],byteorder='little')
+        elif self.buffer[offset] == 1:
+            # case where data is null
+            meta_value_length = 0
         else:
-            item.type = buffer[offset + 1]
-            if item.type >= 32 and item.type < 64:
-                item.type = item.type-32
-            item.data_offset = offset + 2
-            item.data_length = buffer[offset] - 2
-            item.next_offset = item.data_offset + item.data_length
-            item.is_null = (item.type == _ListItem.ITEM_PLACEHOLDER) or ((item.type == _ListItem.ITEM_ASCII) and (item.data_length == 0))
-            item.is_undefined = False
+            # case where the length is first byte
+            meta_value_length = self.buffer[offset]
+            meta_offset += 2
+        if meta_value_length > len(self.buffer) or meta_value_length <= 0:
+            raise Exception("Invalid length")
+        return meta_value_length, meta_offset
+
+    def get_item_type(self,offset,meta_offset=None,length=None):
+        if meta_offset is None:
+            length, meta_offset = self.get_item_length(offset)
+        typ = self.buffer[offset+meta_offset-1]
+            # if result is not between 0 and 9, then raise an exception
+        if typ < 0 or typ > 9:
+            raise Exception("Invalid type")
+        return typ
+
+    def get_item_raw_value(self,offset,meta_offset=None,length=None):
+        if meta_offset is None or length is None:
+            length, meta_offset = self.get_item_length(offset)
+        return self.buffer[offset+meta_offset:offset+length]
+
+    def get_item_buffer(self,offset,meta_offset=None,length=None):
+        if meta_offset is None or length is None:
+            length, meta_offset = self.get_item_length(offset)
+        return self.buffer[offset:offset+length]
+
+    def get_item_value(self,offset,meta_offset=None,length=None,typ=None,raw_value=None):
+        if meta_offset is None or length is None:
+            length, meta_offset = self.get_item_length(offset)
+        if typ is None:
+            typ = self.get_item_type(offset,meta_offset,length)
+        if raw_value is None:
+            raw_value = self.get_item_raw_value(offset,meta_offset,length)
+        if typ == Dollartype.ITEM_ASCII.value:
+            return self.get_ascii(raw_value)
+        elif typ == Dollartype.ITEM_UNICODE.value:
+            return raw_value.decode('utf-16')
+        elif typ == Dollartype.ITEM_POSINT.value:
+            return self.get_posint(raw_value)
+        elif typ == Dollartype.ITEM_NEGINT.value:
+            return struct.unpack('<i',raw_value)[0]
+        elif typ == Dollartype.ITEM_POSNUM.value:
+            return struct.unpack('<Q',raw_value)[0]
+        elif typ == Dollartype.ITEM_NEGNUM.value:
+            return struct.unpack('<q',raw_value)[0]
+        elif typ == Dollartype.ITEM_DOUBLE.value:
+            return struct.unpack('<d',raw_value)[0]
+        elif typ == Dollartype.ITEM_COMPACT_DOUBLE.value:
+            return struct.unpack('<f',raw_value)[0]
+        else:
+            return None
+
+    def get_ascii(self,raw_value):
+        """
+        Decode the value as ascii.
+        If decoding fails, consider the value as a sub-list.
+        If decoding the sub-list fails, consider the value as a binary.
+        """
+        if raw_value == b'':
+            return None
+        try:
+            return DollarList(raw_value)
+        except:
+            try:
+                return raw_value.decode('ascii')
+            except:
+                return raw_value
+
+    def get_posint(self,raw_value):
+        return int.from_bytes(raw_value, "little")
+
+    def get_item(self,offset) -> DollarItem:
+        item = DollarItem()
+        item.offset = offset
+        item.meta_value_length,item.meta_offset = self.get_item_length(offset)
+        item.dollar_type = self.get_item_type(offset)
+        item.raw_value = self.get_item_raw_value(offset)
+        item.buffer = self.get_item_buffer(offset)
+        item.value = self.get_item_value(offset)
+        # if value is a list change the typ to ITEM_PLACEHOLDER
+        if isinstance(item.value,DollarList):
+            item.dollar_type = 0
         return item
 
+    def get_next_item(self) -> DollarItem:
+        item = self.get_item(self.next_offset)
+        self.next_offset = self.get_next_offset(self.next_offset)
+        return item
 
-    
+    def get_next_offset(self,offset):
+        if self.buffer[offset] != 0:
+            next_offset = offset + self.buffer[offset]
+        elif self.buffer[offset + 1] == 0 and self.buffer[offset + 2] == 0:
+            if offset + 6 < len(self.buffer):
+                next_offset = (self.buffer[offset + 3] | (self.buffer[offset + 4] << 8) | (self.buffer[offset + 5] << 16)) + 7
+        elif offset + 2 < len(self.buffer):           
+            next_offset = (self.buffer[offset + 1] | (self.buffer[offset + 2] << 8)) + 3
+        return next_offset
+
+class DollarList(DollarListReader):
+
+    def __str__(self):
+        return str(self.items)
+
+    @classmethod
+    def _to_list(cls,items):
+        """
+        Convert a list of DollarItems to a list of python objects
+        """
+        result = []
+        for item in items:
+            if item.dollar_type == 0:
+                result.append(cls._to_list(item.value))
+            else:
+                result.append(item.value)
+        return result
+
+    def to_list(self):
+        """
+        Convert a list of DollarItems to a list of python objects
+        """
+        return self._to_list(self.items)
+
+    # build iter functions
+    def __iter__(self):
+        self.next_offset = 0
+        return self
+
+    def __next__(self):
+        if self.next_offset < len(self.buffer):
+            return self.get_next_item()
+        else:
+            raise StopIteration
 
 
+if __name__ == '__main__':
+    data = b'\x03\x01X\x03\x04\x01\t\x01\x07\x01ttest'
+    #data = b'\x07\x04\xFF\xE3\x0B\x54\x02'
+    #data = b'\x02\x01'
+    data = '\x00õ\x01\x01AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+    data = data.encode('latin-1')
+    #data = b'\x0f\x01AAAAAAAAAAAAA'
+    result = DollarList(data)
+    print(result.to_list())
+    data2 = b'\x00\xf5\x01\x01AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+    result2 = DollarList(data2)
+    print(result.to_list())
