@@ -1,34 +1,61 @@
-# iris-list-python
+# dollar-list
+
+[![PyPI - Status](https://img.shields.io/pypi/status/dollar-list)](https://pypi.org/project/iris-dollar-list/)
+[![PyPI](https://img.shields.io/pypi/v/dollar-list)](https://pypi.org/project/iris-dollar-list/)
+[![GitHub](https://img.shields.io/github/license/grongierisc/dollar-list)](https://github.com/grongierisc/dollar-list/blob/main/LICENSE)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/dollar-list)](https://pypi.org/project/iris-dollar-list/)
 
 Interpretor of $list for python named DollarList.
 
-This interpretor was made because I wanted to use $list in python. And Embedded Python do not support $list.
+This interpretor was made because :
+ * I wanted to use $list in python. 
+ * Embedded Python do not support $list. 
+ * The native API version do not support embedded $list in $list. 
 
-This is a work in progress. For now it only support the parsing of $list. The next step is to make it work for writing $list.
+This is a work in progress. For now it only support the parsing of $list with recursive $list.
+The next step is to make it work for writing $list.
 
-# $list
+- [dollar-list](#dollar-list)
+- [2. $list](#2-list)
+  - [2.1. What is $list ?](#21-what-is-list-)
+  - [2.2. How it works ?](#22-how-it-works-)
+    - [2.2.1. Header](#221-header)
+      - [2.2.1.1. Size](#2211-size)
+      - [2.2.1.2. Type](#2212-type)
+    - [2.2.2. Body](#222-body)
+      - [2.2.2.1. Ascii](#2221-ascii)
+      - [2.2.2.2. Unicode](#2222-unicode)
+      - [2.2.2.3. Int](#2223-int)
+      - [2.2.2.4. Negative Int](#2224-negative-int)
+      - [2.2.2.5. Float](#2225-float)
+      - [2.2.2.6. Negative Float](#2226-negative-float)
+      - [2.2.2.7. Double](#2227-double)
+      - [2.2.2.8. Compact Double](#2228-compact-double)
+  - [Development](#development)
 
-## What is $list ?
+# 2. $list
+
+## 2.1. What is $list ?
 
 $list is binary format for storing data. It is used in Iris Engine. It is a format that is easy to read and write. It is also easy to parse.
 
 The neat thing about $list is that it is not limited for storage. It also used for communication on the SuperServer port of IRIS.
 
-## How it works ?
+## 2.2. How it works ?
 
 $list is a binary format that store list of values. Each value is stored in a block. Each block is composed of a header and a body. The header is composed of a size and a type. The body is composed of the value.
 
-### Header
+### 2.2.1. Header
 
 The header is composed of a size and a type. 
 
-#### Size
+#### 2.2.1.1. Size
 
 The size dictates the size of the block. The size is stored in `N` bytes.
 `N` is determined by the number of bytes that are zero in the first bytes of the header.
 The size is stored in little endian.
 
-#### Type
+#### 2.2.1.2. Type
 
 The type is a byte that represent the type of the value. 
 The type is stored just after the size.
@@ -43,13 +70,13 @@ List of types:
   * double: 0x08
   * compact double: 0x09
 
-#### Body
+### 2.2.2. Body
 
 The body is composed of the value.
 
 To parse the body, you need to know the type of the value.
 
-#### Ascii
+#### 2.2.2.1. Ascii
 
 Decode the value as ascii.
 
@@ -57,31 +84,40 @@ If decoding fails, consider the value as a sub-list.
 
 If decoding the sub-list fails, consider the value as a binary.
 
-#### Unicode
+#### 2.2.2.2. Unicode
 
 Decode the value as unicode.
 
-#### Int
+#### 2.2.2.3. Int
 
 Parse the value as an integer in little endian and unsigned.
 
-#### Negative Int
+#### 2.2.2.4. Negative Int
 
 Parse the value as an integer in little endian and signed.
 
-#### Float
+#### 2.2.2.5. Float
 
 ????
 
-#### Negative Float
+#### 2.2.2.6. Negative Float
 
 ????
 
-#### Double
+#### 2.2.2.7. Double
 
 ????
 
-#### Compact Double
+#### 2.2.2.8. Compact Double
 
 ????
 
+
+## Development
+
+This package is developed using [python-build](https://github.com/craigahobbs/python-build#readme).
+It was started using [python-template](https://github.com/craigahobbs/python-template#readme) as follows:
+
+```
+template-specialize python-template/template/ dollar-list/ -k package dollar-list -k name 'grongier' -k email 'guillaume.rongier@intersystems.com' -k github 'grongierisc' -k noapi 1
+```
