@@ -44,7 +44,7 @@ class TestDollarListReaderGetItemLengh(unittest.TestCase):
         length,meta_offset = reader.get_item_length(0)
         self.assertEqual(length,257)
         self.assertEqual(meta_offset,4)
-    
+
     def test_long_long_length(self):
         # build a list with a long length
         # payload is A*256*256
@@ -84,7 +84,7 @@ class TestDollarListReaderGetItemType(unittest.TestCase):
         self.assertEqual(item_type,4)
         item_value = reader.get_item_value(0)
         self.assertEqual(item_value,1)
- 
+
     def test_negative_integer_type(self):
         data = b'\x03\x05\xfe'
         reader = DollarListReader(b'')
@@ -106,7 +106,7 @@ class TestDollarListReaderGetItemType(unittest.TestCase):
 
     def test_negative_float_type(self):
         pass
-    
+
     def test_double_type(self):
         pass
 
@@ -116,5 +116,3 @@ class TestDollarListReaderGetItemType(unittest.TestCase):
 if __name__ == '__main__':
     # init the data
     unittest.main()
-
-

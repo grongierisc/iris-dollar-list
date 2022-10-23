@@ -5,7 +5,6 @@
 #
 
 from dataclasses import dataclass
-import decimal
 from enum import Enum
 import struct
 from typing import Any
@@ -44,6 +43,12 @@ class DollarItem:
 
     def __str__(self) -> str:
         return f'{self.dollar_type} {self.value}'
+
+# create DollarList exceptions
+class DollarListException(Exception):
+    """
+    Base class for DollarList exceptions
+    """
 
 class DollarListReader:
 
@@ -90,16 +95,16 @@ class DollarListReader:
             meta_value_length = self.buffer[offset]
             meta_offset += 2
         if meta_value_length > len(self.buffer) or meta_value_length <= 0:
-            raise Exception("Invalid length")
+            raise DollarListException("Invalid length")
         return meta_value_length, meta_offset
 
-    def get_item_type(self,offset,meta_offset=None,length=None):
+    def get_item_type(self,offset,meta_offset=None):
         if meta_offset is None:
-            length, meta_offset = self.get_item_length(offset)
+            meta_offset = self.get_item_length(offset)[1]
         typ = self.buffer[offset+meta_offset-1]
             # if result is not between 0 and 9, then raise an exception
         if typ < 0 or typ > 9:
-            raise Exception("Invalid type")
+            raise DollarListException("Invalid type")
         return typ
 
     def get_item_raw_value(self,offset,meta_offset=None,length=None):
@@ -113,30 +118,35 @@ class DollarListReader:
         return self.buffer[offset:offset+length]
 
     def get_item_value(self,offset,meta_offset=None,length=None,typ=None,raw_value=None):
+        value = None
         if meta_offset is None or length is None:
             length, meta_offset = self.get_item_length(offset)
         if typ is None:
-            typ = self.get_item_type(offset,meta_offset,length)
+            typ = self.get_item_type(
+                    offset=offset,
+                    meta_offset=meta_offset
+                )
         if raw_value is None:
             raw_value = self.get_item_raw_value(offset,meta_offset,length)
         if typ == Dollartype.ITEM_ASCII.value:
-            return self.get_ascii(raw_value)
+            value = self.get_ascii(raw_value)
         elif typ == Dollartype.ITEM_UNICODE.value:
-            return raw_value.decode('utf-16')
+            value = raw_value.decode('utf-16')
         elif typ == Dollartype.ITEM_POSINT.value:
-            return self.get_posint(raw_value)
+            value = self.get_posint(raw_value)
         elif typ == Dollartype.ITEM_NEGINT.value:
-            return self.get_negint(raw_value)
+            value = self.get_negint(raw_value)
         elif typ == Dollartype.ITEM_POSNUM.value:
-            return self.get_posnum(raw_value)
+            value = self.get_posnum(raw_value)
         elif typ == Dollartype.ITEM_NEGNUM.value:
-            return struct.unpack('<q',raw_value)[0]
+            value = struct.unpack('<q',raw_value)[0]
         elif typ == Dollartype.ITEM_DOUBLE.value:
-            return struct.unpack('<d',raw_value)[0]
+            value = struct.unpack('<d',raw_value)[0]
         elif typ == Dollartype.ITEM_COMPACT_DOUBLE.value:
-            return struct.unpack('<f',raw_value)[0]
+            value = struct.unpack('<f',raw_value)[0]
         else:
-            return None
+            value = None
+        return value
 
     def get_ascii(self,raw_value):
         """
@@ -148,10 +158,10 @@ class DollarListReader:
             return None
         try:
             return DollarList(raw_value)
-        except:
+        except DollarListException:
             try:
                 return raw_value.decode('ascii')
-            except:
+            except UnicodeDecodeError:
                 return raw_value
 
     def get_posint(self,raw_value):
@@ -172,7 +182,10 @@ class DollarListReader:
         item = DollarItem()
         item.offset = offset
         item.meta_value_length,item.meta_offset = self.get_item_length(offset)
-        item.dollar_type = self.get_item_type(offset,item.meta_offset,item.meta_value_length)
+        item.dollar_type = self.get_item_type(
+            offset=offset,
+            meta_offset=item.meta_offset,
+        )
         item.raw_value = self.get_item_raw_value(offset,item.meta_offset,item.meta_value_length)
         item.buffer = self.get_item_buffer(offset,item.meta_offset,item.meta_value_length)
         item.value = self.get_item_value(offset,item.meta_offset,item.meta_value_length)
@@ -192,7 +205,7 @@ class DollarListReader:
         elif self.buffer[offset + 1] == 0 and self.buffer[offset + 2] == 0:
             if offset + 6 < len(self.buffer):
                 next_offset = (self.buffer[offset + 3] | (self.buffer[offset + 4] << 8) | (self.buffer[offset + 5] << 16)) + 7
-        elif offset + 2 < len(self.buffer):           
+        elif offset + 2 < len(self.buffer):
             next_offset = (self.buffer[offset + 1] | (self.buffer[offset + 2] << 8)) + 3
         return next_offset
 
@@ -226,7 +239,9 @@ class DollarList(DollarListReader):
         return self
 
     def __next__(self):
+        item = None
         if self.next_offset < len(self.buffer):
-            return self.get_next_item()
+            item = self.get_next_item()
         else:
             raise StopIteration
+        return item

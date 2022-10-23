@@ -115,9 +115,4 @@ Parse the value as an integer in little endian and signed.
 
 ## Development
 
-This package is developed using [python-build](https://github.com/craigahobbs/python-build#readme).
-It was started using [python-template](https://github.com/craigahobbs/python-template#readme) as follows:
 
-```
-template-specialize python-template/template/ dollar-list/ -k package dollar-list -k name 'grongier' -k email 'guillaume.rongier@intersystems.com' -k github 'grongierisc' -k noapi 1
-```

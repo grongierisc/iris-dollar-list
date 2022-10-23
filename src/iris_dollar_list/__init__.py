@@ -1,4 +1,4 @@
 # Licensed under the MIT License
 # https://github.com/grongierisc/dollar-list/blob/main/LICENSE
 
-from .DollarList import *
+from .dollar_list import *
