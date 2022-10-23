@@ -1,8 +1,8 @@
-# dollar-list
+# iris-dollar-list
 
 [![PyPI - Status](https://img.shields.io/pypi/status/dollar-list)](https://pypi.org/project/iris-dollar-list/)
 [![PyPI](https://img.shields.io/pypi/v/dollar-list)](https://pypi.org/project/iris-dollar-list/)
-[![GitHub](https://img.shields.io/github/license/grongierisc/dollar-list)](https://github.com/grongierisc/dollar-list/blob/main/LICENSE)
+[![GitHub](https://img.shields.io/github/license/grongierisc/dollar-list)](https://github.com/grongierisc/iris-dollar-list/blob/main/LICENSE)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/dollar-list)](https://pypi.org/project/iris-dollar-list/)
 
 Interpretor of $list for python named DollarList.
@@ -15,7 +15,7 @@ This interpretor was made because :
 This is a work in progress. For now it only support the parsing of $list with recursive $list.
 The next step is to make it work for writing $list.
 
-- [dollar-list](#dollar-list)
+- [iris-dollar-list](#iris-dollar-list)
 - [2. $list](#2-list)
   - [2.1. What is $list ?](#21-what-is-list-)
   - [2.2. How it works ?](#22-how-it-works-)
