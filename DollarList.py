@@ -5,6 +5,7 @@
 #
 
 from dataclasses import dataclass
+import decimal
 from enum import Enum
 import struct
 from typing import Any
@@ -125,9 +126,9 @@ class DollarListReader:
         elif typ == Dollartype.ITEM_POSINT.value:
             return self.get_posint(raw_value)
         elif typ == Dollartype.ITEM_NEGINT.value:
-            return struct.unpack('<i',raw_value)[0]
+            return self.get_negint(raw_value)
         elif typ == Dollartype.ITEM_POSNUM.value:
-            return struct.unpack('<Q',raw_value)[0]
+            return self.get_posnum(raw_value)
         elif typ == Dollartype.ITEM_NEGNUM.value:
             return struct.unpack('<q',raw_value)[0]
         elif typ == Dollartype.ITEM_DOUBLE.value:
@@ -156,14 +157,25 @@ class DollarListReader:
     def get_posint(self,raw_value):
         return int.from_bytes(raw_value, "little")
 
+    def get_negint(self,raw_value):
+        return int.from_bytes(raw_value, "little",signed=True)
+
+    def get_posnum(self,raw_value):
+        # parse the bytes as a float
+        # using IEEE 754 standard
+        return struct.unpack('<d',raw_value)[0]
+
+    def get_negnum(self,raw_value):
+        return struct.unpack('<q',raw_value)[0]
+
     def get_item(self,offset) -> DollarItem:
         item = DollarItem()
         item.offset = offset
         item.meta_value_length,item.meta_offset = self.get_item_length(offset)
-        item.dollar_type = self.get_item_type(offset)
-        item.raw_value = self.get_item_raw_value(offset)
-        item.buffer = self.get_item_buffer(offset)
-        item.value = self.get_item_value(offset)
+        item.dollar_type = self.get_item_type(offset,item.meta_offset,item.meta_value_length)
+        item.raw_value = self.get_item_raw_value(offset,item.meta_offset,item.meta_value_length)
+        item.buffer = self.get_item_buffer(offset,item.meta_offset,item.meta_value_length)
+        item.value = self.get_item_value(offset,item.meta_offset,item.meta_value_length)
         # if value is a list change the typ to ITEM_PLACEHOLDER
         if isinstance(item.value,DollarList):
             item.dollar_type = 0
@@ -218,13 +230,3 @@ class DollarList(DollarListReader):
             return self.get_next_item()
         else:
             raise StopIteration
-
-
-if __name__ == '__main__':
-    payload = b'\x41'*256*256
-    data = b'\x00\x00\x00\x01\x00\x01\x00\x01' + payload
-    data2 = b'\x03\x01t\x03\x01t'
-    data = data + data2
-    reader = DollarListReader(data)
-    for item in reader:
-        print(item)
