@@ -3,7 +3,7 @@
 [![PyPI - Status](https://img.shields.io/pypi/status/iris-dollar-list)](https://pypi.org/project/iris-dollar-list/)
 [![PyPI](https://img.shields.io/pypi/v/iris-dollar-list)](https://pypi.org/project/iris-dollar-list/)
 [![GitHub](https://img.shields.io/github/license/grongierisc/iris-dollar-list)](https://github.com/grongierisc/iris-dollar-list/blob/main/LICENSE)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/iris-dollar-list)](https://pypi.org/project/iris-dollar-list/)
+[![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/grongierisc/de6821ab77160e603e25e79f847d9863/raw/covbadge.json)](https://github.com/grongierisc/iris-dollar-list/actions)
 
 Interpretor of $list for python named DollarList.
 
