@@ -1,9 +1,9 @@
 # iris-dollar-list
 
-[![PyPI - Status](https://img.shields.io/pypi/status/dollar-list)](https://pypi.org/project/iris-dollar-list/)
-[![PyPI](https://img.shields.io/pypi/v/dollar-list)](https://pypi.org/project/iris-dollar-list/)
-[![GitHub](https://img.shields.io/github/license/grongierisc/dollar-list)](https://github.com/grongierisc/iris-dollar-list/blob/main/LICENSE)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/dollar-list)](https://pypi.org/project/iris-dollar-list/)
+[![PyPI - Status](https://img.shields.io/pypi/status/iris-dollar-list)](https://pypi.org/project/iris-dollar-list/)
+[![PyPI](https://img.shields.io/pypi/v/iris-dollar-list)](https://pypi.org/project/iris-dollar-list/)
+[![GitHub](https://img.shields.io/github/license/grongierisc/iris-dollar-list)](https://github.com/grongierisc/iris-dollar-list/blob/main/LICENSE)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/iris-dollar-list)](https://pypi.org/project/iris-dollar-list/)
 
 Interpretor of $list for python named DollarList.
 
