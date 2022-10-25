@@ -86,7 +86,8 @@ class DollarListReader:
             # plus the type byte
             meta_offset = 2*i+2
             # cast the length to an integer
-            meta_value_length = int.from_bytes(self.buffer[offset+i:offset+2*i+1],byteorder='little')
+            meta_value_length = int.from_bytes(self.buffer[offset+i:offset+2*i+1],
+                                                byteorder='little')
         elif self.buffer[offset] == 1:
             # case where data is null
             meta_value_length = 0
@@ -204,7 +205,11 @@ class DollarListReader:
             next_offset = offset + self.buffer[offset]
         elif self.buffer[offset + 1] == 0 and self.buffer[offset + 2] == 0:
             if offset + 6 < len(self.buffer):
-                next_offset = (self.buffer[offset + 3] | (self.buffer[offset + 4] << 8) | (self.buffer[offset + 5] << 16)) + 7
+                next_offset = (
+                                self.buffer[offset + 3] |
+                                (self.buffer[offset + 4] << 8) |
+                                (self.buffer[offset + 5] << 16)
+                              ) + 7
         elif offset + 2 < len(self.buffer):
             next_offset = (self.buffer[offset + 1] | (self.buffer[offset + 2] << 8)) + 3
         return next_offset

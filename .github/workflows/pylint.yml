@@ -23,4 +23,6 @@ jobs:
         pylint --disable=missing-class-docstring \
         --disable=missing-function-docstring \
         --disable=missing-module-docstring \
+        --disable=import-error \
+        --disable=too-many-arguments \
         setup.py src

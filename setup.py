@@ -8,7 +8,8 @@ from setuptools import setup
 
 def main():
     # Read the readme for use as the long description
-    with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'README.md'), encoding='utf-8') as readme_file:
+    with open(os.path.join(os.path.abspath(os.path.dirname(__file__)),
+                            'README.md'), encoding='utf-8') as readme_file:
         long_description = readme_file.read()
 
     # Do the setup
