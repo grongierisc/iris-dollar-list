@@ -76,7 +76,7 @@ jobs:
           uses: schneegans/dynamic-badges-action@v1.4.0
           with:
             # GIST_TOKEN is a GitHub personal access token with scope "gist".
-            auth: ${{ secrets.GIST_TOKEN }}
+            auth: ${{ secrets.GIST_SECRET }}
             gistID: de6821ab77160e603e25e79f847d9863   # replace with your real Gist id.
             filename: covbadge.json
             label: Coverage
