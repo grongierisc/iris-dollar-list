@@ -1,4 +1,4 @@
-# iris-dollar-list
+# 1. iris-dollar-list
 
 [![PyPI - Status](https://img.shields.io/pypi/status/iris-dollar-list)](https://pypi.org/project/iris-dollar-list/)
 [![PyPI](https://img.shields.io/pypi/v/iris-dollar-list)](https://pypi.org/project/iris-dollar-list/)
@@ -15,7 +15,60 @@ This interpretor was made because :
 This is a work in progress. For now it only support the parsing of $list with recursive $list.
 The next step is to make it work for writing $list.
 
-- [iris-dollar-list](#iris-dollar-list)
+This module is available on Pypi : 
+
+```sh
+pip3 install iris-dollar-list
+```
+
+It is compatible with embedded python and native api.
+
+## 1.1. Usage
+
+example :
+
+```objectscript
+set ^list = $lb("test",$lb(4))
+```
+
+example of use with native api : 
+ 
+
+```python
+import iris
+from iris_dollar_list import DollarList
+ 
+conn = iris.connect("localhost", 57161,"IRISAPP", "SuperUser", "SYS")
+ 
+iris_obj = iris.createIRIS(conn)
+ 
+gl = iris_obj.get("^list")
+ 
+my_list = DollarList(gl.encode('ascii'))
+ 
+print(my_list.to_list())
+# ['test', [4]]
+```
+
+example of use with embedded python :
+
+```python
+import iris
+from iris_dollar_list import DollarList
+ 
+gl = iris.gref("^list")
+ 
+my_list = DollarList(gl[None].encode('ascii'))
+ 
+print(my_list.to_list())
+# ['test', [4]]
+```
+
+## 1.2. Table of Contents
+
+- [1. iris-dollar-list](#1-iris-dollar-list)
+  - [1.1. Usage](#11-usage)
+  - [1.2. Table of Contents](#12-table-of-contents)
 - [2. $list](#2-list)
   - [2.1. What is $list ?](#21-what-is-list-)
   - [2.2. How it works ?](#22-how-it-works-)
@@ -31,7 +84,7 @@ The next step is to make it work for writing $list.
       - [2.2.2.6. Negative Float](#2226-negative-float)
       - [2.2.2.7. Double](#2227-double)
       - [2.2.2.8. Compact Double](#2228-compact-double)
-  - [Development](#development)
+  - [2.3. Development](#23-development)
 
 # 2. $list
 
@@ -113,6 +166,6 @@ Parse the value as an integer in little endian and signed.
 ????
 
 
-## Development
+## 2.3. Development
 
 
