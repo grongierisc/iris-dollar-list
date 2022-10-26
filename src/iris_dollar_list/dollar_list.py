@@ -83,38 +83,6 @@ class DollarListReader:
             raise DollarListException("Invalid length")
         return length, meta_offset
 
-    def get_item_length_old(self,offset):
-        """
-        Get the length of the item in the meta data and the length of the meta data
-        """
-        meta_value_length = 0
-        meta_offset = 0
-        if self.buffer[offset] == 0:
-            # case when length is in more than one byte
-            i = 1
-            while int.from_bytes(self.buffer[offset+i:offset+i*2+1],'little') == 0:
-                # check how many bytes are used to store the length
-                # by counting the number of 0 bytes
-                i += 1
-            # meta data length is the number of bytes used to store the length
-            # plus the number of 0 bytes
-            # plus the length itself
-            # plus the type byte
-            meta_offset = 2*i+2
-            # cast the length to an integer
-            meta_value_length = int.from_bytes(self.buffer[offset+i:offset+2*i+1],
-                                                byteorder='little')
-        elif self.buffer[offset] == 1:
-            # case where data is null
-            meta_value_length = 0
-        else:
-            # case where the length is first byte
-            meta_value_length = self.buffer[offset]
-            meta_offset += 2
-        if meta_value_length > len(self.buffer) or meta_value_length <= 0:
-            raise DollarListException("Invalid length")
-        return meta_value_length, meta_offset
-
     def get_item_type(self,offset,meta_offset=None):
         if meta_offset is None:
             meta_offset = self.get_item_length(offset)[1]
@@ -359,16 +327,19 @@ class DollarListWriter:
         Get the length of the raw value
         """
         result = b''
-        length = len(raw_value)
+        length = len(raw_value) + 2
         # convert bit_length to bytes
         bytes_length = (length.bit_length() + 7) // 8
-        # zero_prefix is the number of \x00 bytes that need to be added to the length
-        length = len(raw_value) + 1 + bytes_length # add the type and length bytes
 
-        result += b'\x00' * (bytes_length-1) + (length).to_bytes(bytes_length, "little")
-
+        if bytes_length == 1:
+            result = length.to_bytes(1, "little")
+        elif bytes_length == 2:
+            result = b'\x00' + (length-1).to_bytes(2, "little")
+        elif bytes_length > 2 and bytes_length < 5:
+            result = b'\x00\x00\x00' + (length-1).to_bytes(4, "little")
+        elif bytes_length > 4:
+            raise DollarListException("Value is too long")
         return result
-
 
 @dataclass
 class DollarList:

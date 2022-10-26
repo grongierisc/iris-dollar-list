@@ -45,11 +45,11 @@ class TestDollarListReaderGetItemLengh(unittest.TestCase):
     def test_long_long_length(self):
         # build a list with a long length
         # payload is A*256*256
-        payload = b'\x41'*256*256
-        data = b'\x00\x00\x00\x01\x00\x01\x00\x01' + payload
+        payload = b'\x41'*256*500
+        data = b'\x00\x00\x00\x01\xf4\x01\x00\x01' + payload
         reader = DollarListReader(data)
         length,meta_offset = reader.get_item_length(0)
-        self.assertEqual(length,65537)
+        self.assertEqual(length,128001)
         self.assertEqual(meta_offset,8)
 
 class TestDollarListReaderGetItemType(unittest.TestCase):
@@ -133,8 +133,8 @@ class TestDollarWriter(unittest.TestCase):
 
         def test_write_long_long_length(self):
             dl = DollarList()
-            dl.append('A'*256*256)
-            self.assertEqual(dl.to_bytes(),b'\x00\x00\x00\x01\x00\x01\x00\x01' + b'\x41'*256*256)
+            dl.append('A'*256*500)
+            self.assertEqual(dl.to_bytes(),b'\x00\x00\x00\x01\xf4\x01\x00\x01' + b'\x41'*256*500)
 
         def test_write_positive_float(self):
             pass
