@@ -304,7 +304,7 @@ class DollarListWriter:
         """
         Create a DollarItem from a negative integer
         """
-        raw_value = item.to_bytes(item.bit_length(), "little",signed=True)
+        raw_value = item.to_bytes((item.bit_length() + 7) // 8, "little",signed=True)
         value = item
         lenght = self.get_meta_value_length(raw_value)
         buffer = lenght + Dollartype.ITEM_NEGINT.value.to_bytes(1, "little") + raw_value
@@ -319,7 +319,7 @@ class DollarListWriter:
         """
         Create a DollarItem from a positive integer
         """
-        raw_value = item.to_bytes(item.bit_length(), "little")
+        raw_value = item.to_bytes((item.bit_length() + 7) // 8, "little")
         value = item
         lenght = self.get_meta_value_length(raw_value)
         buffer = lenght + Dollartype.ITEM_POSINT.value.to_bytes(1, "little") + raw_value
@@ -337,11 +337,11 @@ class DollarListWriter:
         result = b''
         length = len(raw_value) + 2 # add 2 for the type and length bytes
         # convert bit_length to bytes
-        bytes_length = (length + 7) // 8
+        bytes_length = (length.bit_length() + 7) // 8
         # zero_prefix is the number of \x00 bytes that need to be added to the length
         length = len(raw_value) + 1 + bytes_length # add the type and length bytes
-        for x in range(bytes_length):
-            result += b'\x00' * x + (length).to_bytes(bytes_length, "little")
+
+        result += b'\x00' * (bytes_length-1) + (length).to_bytes(bytes_length, "little")
 
         return result
 
@@ -438,6 +438,8 @@ if __name__ == '__main__':
     my_list = [1,-2,'3,4,5,6,7,8,9,10']
     dollar_list = DollarList.from_list(my_list)
     print(dollar_list.to_bytes())
+    dollar_list = DollarList.from_bytes(b'\x03\x04\x01\x03\x05\xfe\x12\x013,4,5,6,7,8,9,10')
+    print(dollar_list.to_list())
 
         # data = b'\x06\x01test\x05\x01\x03\x04\x04'
         # reader = DollarList.from_bytes(data)
