@@ -4,10 +4,10 @@
 # to store the data in a list of objects
 #
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 import struct
-from typing import Any
+from typing import Any,List
 
 class Dollartype(Enum):
     ITEM_UNDEF = -1
@@ -53,10 +53,10 @@ class DollarListException(Exception):
 class DollarListReader:
 
     def __init__(self, buffer:bytes):
+        self.items = []
         self.buffer = buffer
         self.offset = 0
         self.next_offset = 0
-        self.items = []
         self.read_buffer()
 
     def read_buffer(self):
@@ -158,7 +158,7 @@ class DollarListReader:
         if raw_value == b'':
             return None
         try:
-            return DollarList(raw_value)
+            return DollarList.from_bytes(raw_value)
         except DollarListException:
             try:
                 return raw_value.decode('ascii')
@@ -214,7 +214,17 @@ class DollarListReader:
             next_offset = (self.buffer[offset + 1] | (self.buffer[offset + 2] << 8)) + 3
         return next_offset
 
-class DollarList(DollarListReader):
+@dataclass
+class DollarList:
+
+    items: List[DollarItem] = field(default_factory=list)
+
+    # add to the dataclass a new constructor from_bytes
+    @staticmethod
+    def from_bytes(buffer:bytes):
+        cls = DollarList()
+        cls.items = DollarListReader(buffer).items
+        return cls
 
     def __str__(self):
         """
@@ -267,18 +277,12 @@ class DollarList(DollarListReader):
         """
         return self._to_list(self.items)
 
-    # build iter functions
+    # build iterator for values
     def __iter__(self):
-        self.next_offset = 0
-        return self
-
-    def __next__(self):
-        item = None
-        if self.next_offset < len(self.buffer):
-            item = self.get_next_item()
-        else:
-            raise StopIteration
-        return item
+        return iter(self.items)
 
 if __name__ == '__main__':
-    pass
+        data = b'\x06\x01test\x05\x01\x03\x04\x04'
+        reader = DollarList.from_bytes(data)
+        value = [x.value for x in reader]
+        print(value)
