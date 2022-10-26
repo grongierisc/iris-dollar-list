@@ -41,8 +41,6 @@ class DollarItem:
     # length of the meta data
     meta_offset: int = 0
 
-    def __str__(self) -> str:
-        return f'{self.dollar_type} {self.value}'
 
 # create DollarList exceptions
 class DollarListException(Exception):
@@ -214,10 +212,165 @@ class DollarListReader:
             next_offset = (self.buffer[offset + 1] | (self.buffer[offset + 2] << 8)) + 3
         return next_offset
 
+class DollarListWriter:
+    """
+    Convert a DollarList to it's byte form
+    """
+    def __init__(self,dollar_list):
+        self.dollar_list = dollar_list
+        self.buffer = b''
+        self.offset = 0
+
+    def create_dollar_item(self,item):
+        """
+        Create a DollarItem from a python object
+        Based on the item type convert it
+        """
+        if isinstance(item,DollarItem):
+            return item
+        elif isinstance(item,DollarList):
+            return DollarItem(value=item)
+        elif isinstance(item,str):
+            return self.create_from_string(item)
+        elif isinstance(item,int):
+            return self.create_from_int(item)
+        elif isinstance(item,float):
+            raise DollarListException("Floats are not supported")
+        elif isinstance(item,bytes):
+            raise DollarListException("Bytes are not supported")
+        else:
+            raise DollarListException("Invalid item type")
+
+    def create_from_string(self,item):
+        """
+        Create a DollarItem from a string
+        """
+        result = DollarItem()
+        if item == '':
+            result = self.create_null_item()
+        try:
+            result = self.create_from_ascii(item,'ascii')
+        except UnicodeEncodeError:
+            try:
+                result = self.create_from_ascii(item,'latin-1')
+            except UnicodeEncodeError:
+                result = self.create_from_ascii(item,'utf-16')
+        return result
+
+    def create_null_item(self):
+        """
+        Create a DollarItem with a null value
+        """
+        raw_value = b''
+        value = None
+        lenght = b'\x02'
+        buffer = lenght + Dollartype.ITEM_ASCII.value.to_bytes(1, "little") + raw_value
+        return DollarItem(
+            value=value,
+            raw_value=raw_value,
+            buffer=buffer,
+            dollar_type=Dollartype.ITEM_ASCII.value,
+        )
+
+    def create_from_ascii(self,item,locale):
+        """
+        Create a DollarItem from a string
+        """
+        raw_value = value=item.encode(locale)
+        value = item
+        lenght = self.get_meta_value_length(raw_value)
+        if locale != 'utf-16':
+            typ = Dollartype.ITEM_ASCII.value
+        else:
+            typ = Dollartype.ITEM_UNICODE.value
+        buffer = lenght + typ.to_bytes(1, "little") + raw_value
+        return DollarItem(
+            value=value,
+            raw_value=raw_value,
+            buffer=buffer,
+            dollar_type=Dollartype.ITEM_ASCII.value,
+        )
+
+    def create_from_int(self,item):
+        """
+        Create a DollarItem from an integer
+        """
+        if item < 0:
+            return self.create_negint(item)
+        else:
+            return self.create_posint(item)
+
+    def create_negint(self,item):
+        """
+        Create a DollarItem from a negative integer
+        """
+        raw_value = item.to_bytes(item.bit_length(), "little",signed=True)
+        value = item
+        lenght = self.get_meta_value_length(raw_value)
+        buffer = lenght + Dollartype.ITEM_NEGINT.value.to_bytes(1, "little") + raw_value
+        return DollarItem(
+            dollar_type=Dollartype.ITEM_NEGINT.value,
+            value=value,
+            raw_value=raw_value,
+            buffer=buffer
+        )
+
+    def create_posint(self,item):
+        """
+        Create a DollarItem from a positive integer
+        """
+        raw_value = item.to_bytes(item.bit_length(), "little")
+        value = item
+        lenght = self.get_meta_value_length(raw_value)
+        buffer = lenght + Dollartype.ITEM_POSINT.value.to_bytes(1, "little") + raw_value
+        return DollarItem(
+            dollar_type=Dollartype.ITEM_POSINT.value,
+            value=value,
+            raw_value=raw_value,
+            buffer=buffer
+        )
+
+    def get_meta_value_length(self,raw_value):
+        """
+        Get the length of the raw value
+        """
+        result = b''
+        length = len(raw_value) + 2 # add 2 for the type and length bytes
+        # convert bit_length to bytes
+        bytes_length = (length + 7) // 8
+        # zero_prefix is the number of \x00 bytes that need to be added to the length
+        length = len(raw_value) + 1 + bytes_length # add the type and length bytes
+        for x in range(bytes_length):
+            result += b'\x00' * x + (length).to_bytes(bytes_length, "little")
+
+        return result
+
+
 @dataclass
 class DollarList:
 
     items: List[DollarItem] = field(default_factory=list)
+
+    def to_bytes(self):
+        """
+        Convert a DollarList to bytes
+        """
+        buffer = b''
+        for item in self.items:
+            buffer += item.buffer
+        return buffer
+
+    @staticmethod
+    def from_list(python_list):
+        """
+        Create a DollarListWriter from a python list
+        For each item in the list, create a DollarItem
+        """
+        dollar_list = DollarList()
+        dlw = DollarListWriter(dollar_list)
+        for item in python_list:
+            dollar_list.items.append(dlw.create_dollar_item(item))
+        return dollar_list
 
     # add to the dataclass a new constructor from_bytes
     @staticmethod
@@ -282,7 +435,12 @@ class DollarList:
         return iter(self.items)
 
 if __name__ == '__main__':
-        data = b'\x06\x01test\x05\x01\x03\x04\x04'
-        reader = DollarList.from_bytes(data)
-        value = [x.value for x in reader]
-        print(value)
+    my_list = [1,-2,'3,4,5,6,7,8,9,10']
+    dollar_list = DollarList.from_list(my_list)
+    print(dollar_list.to_bytes())
+
+        # data = b'\x06\x01test\x05\x01\x03\x04\x04'
+        # reader = DollarList.from_bytes(data)
+        # print(reader)
+        # bytes = reader.to_bytes()
+        # print(bytes)
