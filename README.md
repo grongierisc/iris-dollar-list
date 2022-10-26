@@ -44,7 +44,7 @@ iris_obj = iris.createIRIS(conn)
  
 gl = iris_obj.get("^list")
  
-my_list = DollarList(gl.encode('ascii'))
+my_list = DollarList.from_bytes(gl.encode('ascii'))
  
 print(my_list.to_list())
 # ['test', [4]]
@@ -58,7 +58,7 @@ from iris_dollar_list import DollarList
  
 gl = iris.gref("^list")
  
-my_list = DollarList(gl[None].encode('ascii'))
+my_list = DollarList.from_bytes(gl[None].encode('ascii'))
  
 print(my_list.to_list())
 # ['test', [4]]
