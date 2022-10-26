@@ -119,7 +119,7 @@ class DollarListReader:
         return self.buffer[offset:offset+length]
 
     def get_item_value(self,offset,meta_offset=None,length=None,typ=None,raw_value=None):
-        value = None
+        val = None
         if meta_offset is None or length is None:
             length, meta_offset = self.get_item_length(offset)
         if typ is None:
@@ -130,24 +130,24 @@ class DollarListReader:
         if raw_value is None:
             raw_value = self.get_item_raw_value(offset,meta_offset,length)
         if typ == Dollartype.ITEM_ASCII.value:
-            value = self.get_ascii(raw_value)
+            val = self.get_ascii(raw_value)
         elif typ == Dollartype.ITEM_UNICODE.value:
-            value = raw_value.decode('utf-16')
+            val = raw_value.decode('utf-16')
         elif typ == Dollartype.ITEM_POSINT.value:
-            value = self.get_posint(raw_value)
+            val = self.get_posint(raw_value)
         elif typ == Dollartype.ITEM_NEGINT.value:
-            value = self.get_negint(raw_value)
+            val = self.get_negint(raw_value)
         elif typ == Dollartype.ITEM_POSNUM.value:
-            value = self.get_posnum(raw_value)
+            val = self.get_posnum(raw_value)
         elif typ == Dollartype.ITEM_NEGNUM.value:
-            value = struct.unpack('<q',raw_value)[0]
+            val = struct.unpack('<q',raw_value)[0]
         elif typ == Dollartype.ITEM_DOUBLE.value:
-            value = struct.unpack('<d',raw_value)[0]
+            val = struct.unpack('<d',raw_value)[0]
         elif typ == Dollartype.ITEM_COMPACT_DOUBLE.value:
-            value = struct.unpack('<f',raw_value)[0]
+            val = struct.unpack('<f',raw_value)[0]
         else:
-            value = None
-        return value
+            val = None
+        return val
 
     def get_ascii(self,raw_value):
         """
@@ -231,8 +231,8 @@ class DollarList(DollarListReader):
         result = "$lb("
         for item in items:
 
-            if (item.dollar_type == Dollartype.ITEM_ASCII.value
-                or item.dollar_type == Dollartype.ITEM_UNICODE.value):
+            if item.dollar_type in (Dollartype.ITEM_ASCII.value,
+                                    Dollartype.ITEM_UNICODE.value):
                 if item.value is None:
                     result += '""' # way of iris to represent null string
                 else:
@@ -281,7 +281,4 @@ class DollarList(DollarListReader):
         return item
 
 if __name__ == '__main__':
-    data = b'\x06\x01test\x05\x01\x03\x04\x04'
-    reader = DollarList(data)
-    value = reader.__str__()
-    print(value)
+    pass
