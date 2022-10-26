@@ -3,7 +3,7 @@
 
 import unittest
 
-from iris_dollar_list import DollarListReader
+from iris_dollar_list import DollarListReader,DollarList
 
 class TestDollarListReaderGetItemLengh(unittest.TestCase):
 
@@ -112,6 +112,86 @@ class TestDollarListReaderGetItemType(unittest.TestCase):
 
     def test_compact_double_type(self):
         pass
+
+class TestDollarListDunder(unittest.TestCase):
+
+    ## to string
+    def test_to_string_empty(self):
+        data = b'\x02\x01'
+        reader = DollarList(data)
+        value = reader.__str__()
+        self.assertEqual(value,'$lb("")')
+
+    def test_to_string_one_element(self):
+        data = b'\x03\x01t'
+        reader = DollarList(data)
+        value = reader.__str__()
+        self.assertEqual(value,'$lb("t")')
+
+    def test_to_string_two_elements(self):
+        data = b'\x03\x01t\x03\x04\x03'
+        reader = DollarList(data)
+        value = reader.__str__()
+        self.assertEqual(value,'$lb("t",3)')
+
+    def test_to_string_embedded_list(self):
+        data = b'\x06\x01test\x05\x01\x03\x04\x04'
+        reader = DollarList(data)
+        value = reader.__str__()
+        self.assertEqual(value,'$lb("test",$lb(4))')
+
+    ## iterator
+    def test_iterate_empty(self):
+        data = b'\x02\x01'
+        reader = DollarList(data)
+        value = [x.value for x in reader]
+        self.assertEqual(value,[None])
+
+    def test_iterate_one_item(self):
+        data = b'\x03\x01t'
+        reader = DollarList(data)
+        value = [x.value for x in reader]
+        self.assertEqual(value,['t'])
+
+    def test_iterate_two_items(self):
+        data =  b'\x03\x01t\x03\x04\x03'
+        reader = DollarList(data)
+        value = [x.value for x in reader]
+        self.assertEqual(value,['t',3])
+
+    def test_iterate_embedded_list(self):
+        data = b'\x06\x01test\x05\x01\x03\x04\x04'
+        reader = DollarList(data)
+        value = [x.value for x in reader]
+        self.assertEqual(value[0],'test')
+        self.assertTrue(isinstance(value[1],DollarList))
+
+    ## to list
+    def test_to_list_empty(self):
+        data = b'\x02\x01'
+        reader = DollarList(data)
+        value = reader.to_list()
+        self.assertEqual(value,[None])
+
+    def test_to_list_one_item(self):
+        data = b'\x03\x01t'
+        reader = DollarList(data)
+        value = reader.to_list()
+        self.assertEqual(value,['t'])
+
+    def test_to_list_two_items(self):
+        data =  b'\x03\x01t\x03\x04\x03'
+        reader = DollarList(data)
+        value = reader.to_list()
+        self.assertEqual(value,['t',3])
+
+    def test_to_list_embedded_list(self):
+        data = b'\x06\x01test\x05\x01\x03\x04\x04'
+        reader = DollarList(data)
+        value = reader.to_list()
+        self.assertEqual(value[0],'test')
+        self.assertTrue(isinstance(value[1],list))
+
 
 if __name__ == '__main__':
     # init the data

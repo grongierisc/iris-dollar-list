@@ -217,7 +217,36 @@ class DollarListReader:
 class DollarList(DollarListReader):
 
     def __str__(self):
-        return str(self.items)
+        """
+        Return a string representation of the list.
+        Like the dollar list representation with $lb
+        """
+        return self._str_(self.items)
+
+    @classmethod
+    def _str_(cls,items):
+        """
+        Return a string representation of the list.
+        Like the dollar list representation with $lb"""
+        result = "$lb("
+        for item in items:
+
+            if (item.dollar_type == Dollartype.ITEM_ASCII.value
+                or item.dollar_type == Dollartype.ITEM_UNICODE.value):
+                if item.value is None:
+                    result += '""' # way of iris to represent null string
+                else:
+                    result += f'"{item.value}"'
+
+            elif item.dollar_type == Dollartype.ITEM_PLACEHOLDER.value:
+                result += cls._str_(item.value.items)
+            else:
+                result += f'{item.value}'
+            result += ","
+        if len(items) > 0:
+            result = result[:-1]
+        result += ")"
+        return result
 
     @classmethod
     def _to_list(cls,items):
@@ -250,3 +279,9 @@ class DollarList(DollarListReader):
         else:
             raise StopIteration
         return item
+
+if __name__ == '__main__':
+    data = b'\x06\x01test\x05\x01\x03\x04\x04'
+    reader = DollarList(data)
+    value = reader.__str__()
+    print(value)
