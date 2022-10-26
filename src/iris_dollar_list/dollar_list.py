@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import struct
 from typing import Any,List
+from unittest import result
 
 class Dollartype(Enum):
     ITEM_UNDEF = -1
@@ -66,6 +67,23 @@ class DollarListReader:
             self.items.append(item)
 
     def get_item_length(self,offset):
+        meta_offset = 0
+        # if first byte is 0, then length is next 2 bytes
+        if self.buffer[offset] == 0:
+            length = self.buffer[offset + 1] | (self.buffer[offset + 2] << 8);
+            meta_offset = 4
+            # if the length is still 0, then the length is the next 4 bytes
+            if length == 0:
+                length = self.buffer[offset+3] | (self.buffer[offset + 4] << 8) | (self.buffer[offset + 5] << 16) | (self.buffer[offset + 6] << 24);
+                meta_offset = 8
+        else:
+            length = self.buffer[offset]
+            meta_offset = 2
+        if length > len(self.buffer) or length <= 0:
+            raise DollarListException("Invalid length")
+        return length, meta_offset
+
+    def get_item_length_old(self,offset):
         """
         Get the length of the item in the meta data and the length of the meta data
         """
@@ -74,7 +92,7 @@ class DollarListReader:
         if self.buffer[offset] == 0:
             # case when length is in more than one byte
             i = 1
-            while self.buffer[offset+i] == 0:
+            while int.from_bytes(self.buffer[offset+i:offset+i*2+1],'little') == 0:
                 # check how many bytes are used to store the length
                 # by counting the number of 0 bytes
                 i += 1
@@ -107,14 +125,24 @@ class DollarListReader:
         return typ
 
     def get_item_raw_value(self,offset,meta_offset=None,length=None):
+        result = None
         if meta_offset is None or length is None:
             length, meta_offset = self.get_item_length(offset)
-        return self.buffer[offset+meta_offset:offset+length]
+        if meta_offset == 2:
+            result = self.buffer[offset+meta_offset:offset+length]
+        elif meta_offset > 2:
+            result = self.buffer[offset+meta_offset:offset+length+meta_offset-1]
+        return result
 
     def get_item_buffer(self,offset,meta_offset=None,length=None):
+        result = None
         if meta_offset is None or length is None:
             length, meta_offset = self.get_item_length(offset)
-        return self.buffer[offset:offset+length]
+        if meta_offset == 2:
+            result = self.buffer[offset:offset+length]
+        elif meta_offset > 2:
+            result = self.buffer[offset:offset+length+meta_offset-1]
+        return result
 
     def get_item_value(self,offset,meta_offset=None,length=None,typ=None,raw_value=None):
         val = None
@@ -198,26 +226,22 @@ class DollarListReader:
         self.next_offset = self.get_next_offset(self.next_offset)
         return item
 
-    def get_next_offset(self,offset):
-        if self.buffer[offset] != 0:
-            next_offset = offset + self.buffer[offset]
-        elif self.buffer[offset + 1] == 0 and self.buffer[offset + 2] == 0:
-            if offset + 6 < len(self.buffer):
-                next_offset = (
-                                self.buffer[offset + 3] |
-                                (self.buffer[offset + 4] << 8) |
-                                (self.buffer[offset + 5] << 16)
-                              ) + 7
-        elif offset + 2 < len(self.buffer):
-            next_offset = (self.buffer[offset + 1] | (self.buffer[offset + 2] << 8)) + 3
-        return next_offset
+    def get_next_offset(self,offset,meta_offset=None,length=None):
+        response = None
+        if meta_offset is None or length is None:
+            length, meta_offset = self.get_item_length(offset)
+        if meta_offset == 2:
+            response = offset + length
+        elif meta_offset > 2:
+            response = offset + length + meta_offset - 1
+        return response
 
 class DollarListWriter:
     """
     Convert a DollarList to it's byte form
     """
-    def __init__(self,dollar_list):
-        self.dollar_list = dollar_list
+    def __init__(self):
+        self.dollar_list = []
         self.buffer = b''
         self.offset = 0
 
@@ -288,7 +312,7 @@ class DollarListWriter:
             value=value,
             raw_value=raw_value,
             buffer=buffer,
-            dollar_type=Dollartype.ITEM_ASCII.value,
+            dollar_type=typ,
         )
 
     def create_from_int(self,item):
@@ -335,7 +359,7 @@ class DollarListWriter:
         Get the length of the raw value
         """
         result = b''
-        length = len(raw_value) + 2 # add 2 for the type and length bytes
+        length = len(raw_value)
         # convert bit_length to bytes
         bytes_length = (length.bit_length() + 7) // 8
         # zero_prefix is the number of \x00 bytes that need to be added to the length
@@ -350,6 +374,9 @@ class DollarListWriter:
 class DollarList:
 
     items: List[DollarItem] = field(default_factory=list)
+
+    def append(self,item):
+        self.items.append(DollarListWriter().create_dollar_item(item))
 
     def to_bytes(self):
         """
@@ -435,14 +462,7 @@ class DollarList:
         return iter(self.items)
 
 if __name__ == '__main__':
-    my_list = [1,-2,'3,4,5,6,7,8,9,10']
-    dollar_list = DollarList.from_list(my_list)
-    print(dollar_list.to_bytes())
-    dollar_list = DollarList.from_bytes(b'\x03\x04\x01\x03\x05\xfe\x12\x013,4,5,6,7,8,9,10')
-    print(dollar_list.to_list())
-
-        # data = b'\x06\x01test\x05\x01\x03\x04\x04'
-        # reader = DollarList.from_bytes(data)
-        # print(reader)
-        # bytes = reader.to_bytes()
-        # print(bytes)
+        data = b'\x03\x01t'
+        reader = DollarList.from_bytes(data)
+        value = reader.to_list()
+        print(value)

@@ -34,12 +34,12 @@ class TestDollarListReaderGetItemLengh(unittest.TestCase):
 
     def test_long_length(self):
         # build a list with a long length
-        # payload is A*256
-        payload = b'\x41'*256
-        data = b'\x00\x01\x01\x01' + payload
+        # payload is A*255
+        payload = b'\x41'*255
+        data = b'\x00\x00\x01\x01' + payload
         reader = DollarListReader(data)
         length,meta_offset = reader.get_item_length(0)
-        self.assertEqual(length,257)
+        self.assertEqual(length,256)
         self.assertEqual(meta_offset,4)
 
     def test_long_long_length(self):
@@ -97,6 +97,56 @@ class TestDollarListReaderGetItemType(unittest.TestCase):
 
     def test_compact_double_type(self):
         pass
+
+class TestDollarWriter(unittest.TestCase):
+    
+        def test_write_ascii(self):
+            dl = DollarList()
+            dl.append('t')
+            self.assertEqual(dl.to_bytes(),b'\x03\x01t')
+    
+        def test_write_unicode(self):
+            dl = DollarList()
+            dl.append('Զ')
+            self.assertEqual(dl.to_bytes(),b'\x06\x02\xff\xfe6\x05')
+    
+        def test_write_positive_integer(self):
+            dl = DollarList()
+            dl.append(1)
+            self.assertEqual(dl.to_bytes(),b'\x03\x04\x01')
+    
+        def test_write_negative_integer(self):
+            dl = DollarList()
+            dl.append(-2)
+            self.assertEqual(dl.to_bytes(),b'\x03\x05\xfe')
+
+        def test_write_two_items(self):
+            dl = DollarList()
+            dl.append('t')
+            dl.append('t')
+            self.assertEqual(dl.to_bytes(),b'\x03\x01t\x03\x01t')
+
+        def test_write_long_length(self):
+            dl = DollarList()
+            dl.append('A'*255)
+            self.assertEqual(dl.to_bytes(),b'\x00\x00\x01\x01' + b'\x41'*255)
+
+        def test_write_long_long_length(self):
+            dl = DollarList()
+            dl.append('A'*256*256)
+            self.assertEqual(dl.to_bytes(),b'\x00\x00\x00\x01\x00\x01\x00\x01' + b'\x41'*256*256)
+
+        def test_write_positive_float(self):
+            pass
+    
+        def test_write_negative_float(self):
+            pass
+    
+        def test_write_double(self):
+            pass
+    
+        def test_write_compact_double(self):
+            pass
 
 class TestDollarList(unittest.TestCase):
 
