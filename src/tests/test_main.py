@@ -136,6 +136,11 @@ class TestDollarWriter(unittest.TestCase):
             dl.append('A'*256*500)
             self.assertEqual(dl.to_bytes(),b'\x00\x00\x00\x01\xf4\x01\x00\x01' + b'\x41'*256*500)
 
+        def test_write_null(self):
+            dl = DollarList()
+            dl.append(None)
+            self.assertEqual(dl.to_bytes(),b'\x02\x01')
+
         def test_write_positive_float(self):
             pass
     
@@ -226,6 +231,15 @@ class TestDollarList(unittest.TestCase):
         value = reader.to_list()
         self.assertEqual(value[0],'test')
         self.assertTrue(isinstance(value[1],list))
+
+    ## from list
+    def test_from_list_empty(self):
+        dl = DollarList.from_list([])
+        self.assertEqual(dl.to_bytes(),b'\x02\x01')
+
+    def test_from_list_one_item(self):
+        dl = DollarList.from_list(['t'])
+        self.assertEqual(dl.to_bytes(),b'\x03\x01t')
 
 
 if __name__ == '__main__':

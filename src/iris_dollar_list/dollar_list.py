@@ -222,7 +222,7 @@ class DollarListWriter:
             return item
         elif isinstance(item,DollarList):
             return DollarItem(value=item)
-        elif isinstance(item,str):
+        elif isinstance(item,str) or item is None:
             return self.create_from_string(item)
         elif isinstance(item,int):
             return self.create_from_int(item)
@@ -238,15 +238,16 @@ class DollarListWriter:
         Create a DollarItem from a string
         """
         result = DollarItem()
-        if item == '':
+        if item == '' or item is None:
             result = self.create_null_item()
-        try:
-            result = self.create_from_ascii(item,'ascii')
-        except UnicodeEncodeError:
+        else:
             try:
-                result = self.create_from_ascii(item,'latin-1')
+                result = self.create_from_ascii(item,'ascii')
             except UnicodeEncodeError:
-                result = self.create_from_ascii(item,'utf-16')
+                try:
+                    result = self.create_from_ascii(item,'latin-1')
+                except UnicodeEncodeError:
+                    result = self.create_from_ascii(item,'utf-16')
         return result
 
     def create_null_item(self):
@@ -254,11 +255,11 @@ class DollarListWriter:
         Create a DollarItem with a null value
         """
         raw_value = b''
-        value = None
+        item_value = None
         lenght = b'\x02'
         buffer = lenght + Dollartype.ITEM_ASCII.value.to_bytes(1, "little") + raw_value
         return DollarItem(
-            value=value,
+            value=item_value,
             raw_value=raw_value,
             buffer=buffer,
             dollar_type=Dollartype.ITEM_ASCII.value,
@@ -268,8 +269,8 @@ class DollarListWriter:
         """
         Create a DollarItem from a string
         """
-        raw_value = value=item.encode(locale)
-        value = item
+        raw_value = item.encode(locale)
+        item_value = item
         lenght = self.get_meta_value_length(raw_value)
         if locale != 'utf-16':
             typ = Dollartype.ITEM_ASCII.value
@@ -277,7 +278,7 @@ class DollarListWriter:
             typ = Dollartype.ITEM_UNICODE.value
         buffer = lenght + typ.to_bytes(1, "little") + raw_value
         return DollarItem(
-            value=value,
+            value=item_value,
             raw_value=raw_value,
             buffer=buffer,
             dollar_type=typ,
@@ -297,12 +298,12 @@ class DollarListWriter:
         Create a DollarItem from a negative integer
         """
         raw_value = item.to_bytes((item.bit_length() + 7) // 8, "little",signed=True)
-        value = item
+        item_value = item
         lenght = self.get_meta_value_length(raw_value)
         buffer = lenght + Dollartype.ITEM_NEGINT.value.to_bytes(1, "little") + raw_value
         return DollarItem(
             dollar_type=Dollartype.ITEM_NEGINT.value,
-            value=value,
+            value=item_value,
             raw_value=raw_value,
             buffer=buffer
         )
@@ -312,12 +313,12 @@ class DollarListWriter:
         Create a DollarItem from a positive integer
         """
         raw_value = item.to_bytes((item.bit_length() + 7) // 8, "little")
-        value = item
+        item_value = item
         lenght = self.get_meta_value_length(raw_value)
         buffer = lenght + Dollartype.ITEM_POSINT.value.to_bytes(1, "little") + raw_value
         return DollarItem(
             dollar_type=Dollartype.ITEM_POSINT.value,
-            value=value,
+            value=item_value,
             raw_value=raw_value,
             buffer=buffer
         )
@@ -326,20 +327,20 @@ class DollarListWriter:
         """
         Get the length of the raw value
         """
-        result = b''
+        response = b''
         length = len(raw_value) + 2
         # convert bit_length to bytes
         bytes_length = (length.bit_length() + 7) // 8
 
         if bytes_length == 1:
-            result = length.to_bytes(1, "little")
+            response = length.to_bytes(1, "little")
         elif bytes_length == 2:
-            result = b'\x00' + (length-1).to_bytes(2, "little")
+            response = b'\x00' + (length-1).to_bytes(2, "little")
         elif bytes_length > 2 and bytes_length < 5:
-            result = b'\x00\x00\x00' + (length-1).to_bytes(4, "little")
+            response = b'\x00\x00\x00' + (length-1).to_bytes(4, "little")
         elif bytes_length > 4:
             raise DollarListException("Value is too long")
-        return result
+        return response
 
 @dataclass
 class DollarList:
@@ -365,9 +366,12 @@ class DollarList:
         For each item in the list, create a DollarItem
         """
         dollar_list = DollarList()
-        dlw = DollarListWriter(dollar_list)
-        for item in python_list:
-            dollar_list.items.append(dlw.create_dollar_item(item))
+        dlw = DollarListWriter()
+        if len(python_list) == 0 or python_list is None:
+            dollar_list.items.append(dlw.create_dollar_item(None))
+        else:
+            for item in python_list:
+                dollar_list.items.append(dlw.create_dollar_item(item))
         return dollar_list
 
     # add to the dataclass a new constructor from_bytes
@@ -389,38 +393,38 @@ class DollarList:
         """
         Return a string representation of the list.
         Like the dollar list representation with $lb"""
-        result = "$lb("
+        response = "$lb("
         for item in items:
 
             if item.dollar_type in (Dollartype.ITEM_ASCII.value,
                                     Dollartype.ITEM_UNICODE.value):
                 if item.value is None:
-                    result += '""' # way of iris to represent null string
+                    response += '""' # way of iris to represent null string
                 else:
-                    result += f'"{item.value}"'
+                    response += f'"{item.value}"'
 
             elif item.dollar_type == Dollartype.ITEM_PLACEHOLDER.value:
-                result += cls._str_(item.value.items)
+                response += cls._str_(item.value.items)
             else:
-                result += f'{item.value}'
-            result += ","
+                response += f'{item.value}'
+            response += ","
         if len(items) > 0:
-            result = result[:-1]
-        result += ")"
-        return result
+            response = response[:-1]
+        response += ")"
+        return response
 
     @classmethod
     def _to_list(cls,items):
         """
         Convert a list of DollarItems to a list of python objects
         """
-        result = []
+        response = []
         for item in items:
             if item.dollar_type == 0:
-                result.append(cls._to_list(item.value))
+                response.append(cls._to_list(item.value))
             else:
-                result.append(item.value)
-        return result
+                response.append(item.value)
+        return response
 
     def to_list(self):
         """
@@ -433,7 +437,7 @@ class DollarList:
         return iter(self.items)
 
 if __name__ == '__main__':
-        data = b'\x03\x01t'
-        reader = DollarList.from_bytes(data)
-        value = reader.to_list()
+        dl = DollarList()
+        dl.append(None)
+        value = dl.to_bytes()
         print(value)
