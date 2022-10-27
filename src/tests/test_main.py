@@ -99,59 +99,59 @@ class TestDollarListReaderGetItemType(unittest.TestCase):
         pass
 
 class TestDollarWriter(unittest.TestCase):
-    
-        def test_write_ascii(self):
-            dl = DollarList()
-            dl.append('t')
-            self.assertEqual(dl.to_bytes(),b'\x03\x01t')
-    
-        def test_write_unicode(self):
-            dl = DollarList()
-            dl.append('Զ')
-            self.assertEqual(dl.to_bytes(),b'\x06\x02\xff\xfe6\x05')
-    
-        def test_write_positive_integer(self):
-            dl = DollarList()
-            dl.append(1)
-            self.assertEqual(dl.to_bytes(),b'\x03\x04\x01')
-    
-        def test_write_negative_integer(self):
-            dl = DollarList()
-            dl.append(-2)
-            self.assertEqual(dl.to_bytes(),b'\x03\x05\xfe')
 
-        def test_write_two_items(self):
-            dl = DollarList()
-            dl.append('t')
-            dl.append('t')
-            self.assertEqual(dl.to_bytes(),b'\x03\x01t\x03\x01t')
+    def test_write_ascii(self):
+        dollar_list = DollarList()
+        dollar_list.append('t')
+        self.assertEqual(dollar_list.to_bytes(),b'\x03\x01t')
 
-        def test_write_long_length(self):
-            dl = DollarList()
-            dl.append('A'*255)
-            self.assertEqual(dl.to_bytes(),b'\x00\x00\x01\x01' + b'\x41'*255)
+    def test_write_unicode(self):
+        dollar_list = DollarList()
+        dollar_list.append('Զ')
+        self.assertEqual(dollar_list.to_bytes(),b'\x06\x02\xff\xfe6\x05')
 
-        def test_write_long_long_length(self):
-            dl = DollarList()
-            dl.append('A'*256*500)
-            self.assertEqual(dl.to_bytes(),b'\x00\x00\x00\x01\xf4\x01\x00\x01' + b'\x41'*256*500)
+    def test_write_positive_integer(self):
+        dollar_list = DollarList()
+        dollar_list.append(1)
+        self.assertEqual(dollar_list.to_bytes(),b'\x03\x04\x01')
 
-        def test_write_null(self):
-            dl = DollarList()
-            dl.append(None)
-            self.assertEqual(dl.to_bytes(),b'\x02\x01')
+    def test_write_negative_integer(self):
+        dollar_list = DollarList()
+        dollar_list.append(-2)
+        self.assertEqual(dollar_list.to_bytes(),b'\x03\x05\xfe')
 
-        def test_write_positive_float(self):
-            pass
-    
-        def test_write_negative_float(self):
-            pass
-    
-        def test_write_double(self):
-            pass
-    
-        def test_write_compact_double(self):
-            pass
+    def test_write_two_items(self):
+        dollar_list = DollarList()
+        dollar_list.append('t')
+        dollar_list.append('t')
+        self.assertEqual(dollar_list.to_bytes(),b'\x03\x01t\x03\x01t')
+
+    def test_write_long_length(self):
+        dollar_list = DollarList()
+        dollar_list.append('A'*255)
+        self.assertEqual(dollar_list.to_bytes(),b'\x00\x00\x01\x01' + b'\x41'*255)
+
+    def test_write_long_long_length(self):
+        dollar_list = DollarList()
+        dollar_list.append('A'*256*500)
+        self.assertEqual(dollar_list.to_bytes(),b'\x00\x00\x00\x01\xf4\x01\x00\x01' + b'\x41'*256*500)
+
+    def test_write_null(self):
+        dollar_list = DollarList()
+        dollar_list.append(None)
+        self.assertEqual(dollar_list.to_bytes(),b'\x02\x01')
+
+    def test_write_positive_float(self):
+        pass
+
+    def test_write_negative_float(self):
+        pass
+
+    def test_write_double(self):
+        pass
+
+    def test_write_compact_double(self):
+        pass
 
 class TestDollarList(unittest.TestCase):
 
@@ -234,12 +234,12 @@ class TestDollarList(unittest.TestCase):
 
     ## from list
     def test_from_list_empty(self):
-        dl = DollarList.from_list([])
-        self.assertEqual(dl.to_bytes(),b'\x02\x01')
+        dollar_list = DollarList.from_list([])
+        self.assertEqual(dollar_list.to_bytes(),b'\x02\x01')
 
     def test_from_list_one_item(self):
-        dl = DollarList.from_list(['t'])
-        self.assertEqual(dl.to_bytes(),b'\x03\x01t')
+        dollar_list = DollarList.from_list(['t'])
+        self.assertEqual(dollar_list.to_bytes(),b'\x03\x01t')
 
 
 if __name__ == '__main__':

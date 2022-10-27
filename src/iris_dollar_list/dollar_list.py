@@ -8,7 +8,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 import struct
 from typing import Any,List
-from unittest import result
 
 class Dollartype(Enum):
     ITEM_UNDEF = -1
@@ -70,11 +69,16 @@ class DollarListReader:
         meta_offset = 0
         # if first byte is 0, then length is next 2 bytes
         if self.buffer[offset] == 0:
-            length = self.buffer[offset + 1] | (self.buffer[offset + 2] << 8);
+            length = self.buffer[offset + 1] | (self.buffer[offset + 2] << 8)
             meta_offset = 4
             # if the length is still 0, then the length is the next 4 bytes
             if length == 0:
-                length = self.buffer[offset+3] | (self.buffer[offset + 4] << 8) | (self.buffer[offset + 5] << 16) | (self.buffer[offset + 6] << 24);
+                length = (
+                        self.buffer[offset+3]
+                        | (self.buffer[offset + 4] << 8)
+                        | (self.buffer[offset + 5] << 16)
+                        | (self.buffer[offset + 6] << 24)
+                )
                 meta_offset = 8
         else:
             length = self.buffer[offset]
@@ -218,37 +222,39 @@ class DollarListWriter:
         Create a DollarItem from a python object
         Based on the item type convert it
         """
+        rsp = None
         if isinstance(item,DollarItem):
-            return item
+            rsp = item
         elif isinstance(item,DollarList):
-            return DollarItem(value=item)
+            rsp = DollarItem(value=item)
         elif isinstance(item,str) or item is None:
-            return self.create_from_string(item)
+            rsp = self.create_from_string(item)
         elif isinstance(item,int):
-            return self.create_from_int(item)
+            rsp = self.create_from_int(item)
         elif isinstance(item,float):
             raise DollarListException("Floats are not supported")
         elif isinstance(item,bytes):
             raise DollarListException("Bytes are not supported")
         else:
             raise DollarListException("Invalid item type")
+        return rsp
 
     def create_from_string(self,item):
         """
         Create a DollarItem from a string
         """
-        result = DollarItem()
+        response = DollarItem()
         if item == '' or item is None:
-            result = self.create_null_item()
+            response = self.create_null_item()
         else:
             try:
-                result = self.create_from_ascii(item,'ascii')
+                response = self.create_from_ascii(item,'ascii')
             except UnicodeEncodeError:
                 try:
-                    result = self.create_from_ascii(item,'latin-1')
+                    response = self.create_from_ascii(item,'latin-1')
                 except UnicodeEncodeError:
-                    result = self.create_from_ascii(item,'utf-16')
-        return result
+                    response = self.create_from_ascii(item,'utf-16')
+        return response
 
     def create_null_item(self):
         """
@@ -288,10 +294,12 @@ class DollarListWriter:
         """
         Create a DollarItem from an integer
         """
+        rsp = None
         if item < 0:
-            return self.create_negint(item)
+            rsp = self.create_negint(item)
         else:
-            return self.create_posint(item)
+            rsp = self.create_posint(item)
+        return rsp
 
     def create_negint(self,item):
         """
@@ -336,7 +344,7 @@ class DollarListWriter:
             response = length.to_bytes(1, "little")
         elif bytes_length == 2:
             response = b'\x00' + (length-1).to_bytes(2, "little")
-        elif bytes_length > 2 and bytes_length < 5:
+        elif 2 < bytes_length < 5:
             response = b'\x00\x00\x00' + (length-1).to_bytes(4, "little")
         elif bytes_length > 4:
             raise DollarListException("Value is too long")
@@ -435,9 +443,3 @@ class DollarList:
     # build iterator for values
     def __iter__(self):
         return iter(self.items)
-
-if __name__ == '__main__':
-        dl = DollarList()
-        dl.append(None)
-        value = dl.to_bytes()
-        print(value)
