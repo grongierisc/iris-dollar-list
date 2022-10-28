@@ -23,6 +23,34 @@ pip3 install iris-dollar-list
 
 It is compatible with embedded python and native api.
 
+## 1.2. Table of Contents
+
+- [1. iris-dollar-list](#1-iris-dollar-list)
+  - [1.2. Table of Contents](#12-table-of-contents)
+  - [1.1. Usage](#11-usage)
+  - [functions](#functions)
+    - [append](#append)
+    - [from_bytes](#from_bytes)
+    - [from_list](#from_list)
+    - [to_bytes](#to_bytes)
+    - [to_list](#to_list)
+- [2. $list](#2-list)
+  - [2.1. What is $list ?](#21-what-is-list-)
+  - [2.2. How it works ?](#22-how-it-works-)
+    - [2.2.1. Header](#221-header)
+      - [2.2.1.1. Size](#2211-size)
+      - [2.2.1.2. Type](#2212-type)
+    - [2.2.2. Body](#222-body)
+      - [2.2.2.1. Ascii](#2221-ascii)
+      - [2.2.2.2. Unicode](#2222-unicode)
+      - [2.2.2.3. Int](#2223-int)
+      - [2.2.2.4. Negative Int](#2224-negative-int)
+      - [2.2.2.5. Float](#2225-float)
+      - [2.2.2.6. Negative Float](#2226-negative-float)
+      - [2.2.2.7. Double](#2227-double)
+      - [2.2.2.8. Compact Double](#2228-compact-double)
+  - [2.3. Development](#23-development)
+
 ## 1.1. Usage
 
 example :
@@ -64,27 +92,68 @@ print(my_list.to_list())
 # ['test', [4]]
 ```
 
-## 1.2. Table of Contents
+## functions
 
-- [1. iris-dollar-list](#1-iris-dollar-list)
-  - [1.1. Usage](#11-usage)
-  - [1.2. Table of Contents](#12-table-of-contents)
-- [2. $list](#2-list)
-  - [2.1. What is $list ?](#21-what-is-list-)
-  - [2.2. How it works ?](#22-how-it-works-)
-    - [2.2.1. Header](#221-header)
-      - [2.2.1.1. Size](#2211-size)
-      - [2.2.1.2. Type](#2212-type)
-    - [2.2.2. Body](#222-body)
-      - [2.2.2.1. Ascii](#2221-ascii)
-      - [2.2.2.2. Unicode](#2222-unicode)
-      - [2.2.2.3. Int](#2223-int)
-      - [2.2.2.4. Negative Int](#2224-negative-int)
-      - [2.2.2.5. Float](#2225-float)
-      - [2.2.2.6. Negative Float](#2226-negative-float)
-      - [2.2.2.7. Double](#2227-double)
-      - [2.2.2.8. Compact Double](#2228-compact-double)
-  - [2.3. Development](#23-development)
+###  append
+
+Append an element to the list.
+
+This element can be :
+ * a string
+ * an int
+ * a DollarList
+ * a DollarItem
+
+```python
+my_list = DollarList()
+my_list.append("one")
+my_list.append(1)
+my_list.append(DollarList.from_list(["list",2]))
+my_list.append(DollarItem(dollar_type=1, value="item",
+                          raw_value=b"item",
+                          buffer=b'\x06\x01item'))
+print(DollarList.from_bytes(my_list.to_bytes()))
+# $lb("one",1,$lb("list",2),"item")
+```
+
+###  from_bytes
+
+Create a DollarList from bytes.
+
+```python
+my_list = DollarList.from_bytes(b'\x05\x01one')
+print(my_list)
+# $lb("one")
+```
+
+###  from_list
+
+Create a DollarList from a list.
+
+```python
+print(DollarList.from_list(["list",2]))
+# $lb("list",2)
+```
+
+###  to_bytes
+
+Convert the DollarList to bytes.
+
+```python
+my_list = DollarList.from_list(["list",2])
+print(my_list.to_bytes())
+# b'\x06\x01list\x03\x04\x02'
+```
+
+###  to_list
+
+Convert the DollarList to a list.
+
+```python
+my_list = DollarList.from_bytes(b'\x05\x01one')
+print(my_list.to_list())
+# ['one']
+```
 
 # 2. $list
 
