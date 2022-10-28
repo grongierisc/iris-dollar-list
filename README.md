@@ -23,17 +23,17 @@ pip3 install iris-dollar-list
 
 It is compatible with embedded python and native api.
 
-## 1.2. Table of Contents
+## 1.1. Table of Contents
 
 - [1. iris-dollar-list](#1-iris-dollar-list)
-  - [1.2. Table of Contents](#12-table-of-contents)
-  - [1.1. Usage](#11-usage)
-  - [functions](#functions)
-    - [append](#append)
-    - [from_bytes](#from_bytes)
-    - [from_list](#from_list)
-    - [to_bytes](#to_bytes)
-    - [to_list](#to_list)
+  - [1.1. Table of Contents](#11-table-of-contents)
+  - [1.2. Usage](#12-usage)
+  - [1.3. functions](#13-functions)
+    - [1.3.1. append](#131-append)
+    - [1.3.2. from_bytes](#132-from_bytes)
+    - [1.3.3. from_list](#133-from_list)
+    - [1.3.4. to_bytes](#134-to_bytes)
+    - [1.3.5. to_list](#135-to_list)
 - [2. $list](#2-list)
   - [2.1. What is $list ?](#21-what-is-list-)
   - [2.2. How it works ?](#22-how-it-works-)
@@ -51,7 +51,7 @@ It is compatible with embedded python and native api.
       - [2.2.2.8. Compact Double](#2228-compact-double)
   - [2.3. Development](#23-development)
 
-## 1.1. Usage
+## 1.2. Usage
 
 example :
 
@@ -92,9 +92,9 @@ print(my_list.to_list())
 # ['test', [4]]
 ```
 
-## functions
+## 1.3. functions
 
-###  append
+###  1.3.1. append
 
 Append an element to the list.
 
@@ -116,7 +116,7 @@ print(DollarList.from_bytes(my_list.to_bytes()))
 # $lb("one",1,$lb("list",2),"item")
 ```
 
-###  from_bytes
+###  1.3.2. from_bytes
 
 Create a DollarList from bytes.
 
@@ -126,7 +126,7 @@ print(my_list)
 # $lb("one")
 ```
 
-###  from_list
+###  1.3.3. from_list
 
 Create a DollarList from a list.
 
@@ -135,7 +135,7 @@ print(DollarList.from_list(["list",2]))
 # $lb("list",2)
 ```
 
-###  to_bytes
+###  1.3.4. to_bytes
 
 Convert the DollarList to bytes.
 
@@ -145,7 +145,7 @@ print(my_list.to_bytes())
 # b'\x06\x01list\x03\x04\x02'
 ```
 
-###  to_list
+###  1.3.5. to_list
 
 Convert the DollarList to a list.
 
