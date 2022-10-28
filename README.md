@@ -12,10 +12,11 @@ This interpretor was made because :
  * Embedded Python do not support $list. 
  * The native API version do not support embedded $list in $list. 
 
-This is a work in progress. For now it only support the parsing of $list with recursive $list.
-The next step is to make it work for writing $list.
+This is a work in progress. For now, it only support embedded $list in $list, int and string.
 
-This module is available on Pypi : 
+WIP float,decimal,double
+
+  **This module is available on Pypi :**
 
 ```sh
 pip3 install iris-dollar-list
