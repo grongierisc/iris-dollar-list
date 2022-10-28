@@ -226,7 +226,10 @@ class DollarListWriter:
         if isinstance(item,DollarItem):
             rsp = item
         elif isinstance(item,DollarList):
-            rsp = DollarItem(value=item)
+            rsp = DollarItem(value=item,dollar_type=0,raw_value=item.to_bytes()
+            ,buffer=self.get_meta_value_length(item.to_bytes())+
+                Dollartype.ITEM_ASCII.value.to_bytes(1, "little")+
+                item.to_bytes())
         elif isinstance(item,str) or item is None:
             rsp = self.create_from_string(item)
         elif isinstance(item,int):
@@ -356,6 +359,9 @@ class DollarList:
     items: List[DollarItem] = field(default_factory=list)
 
     def append(self,item):
+        """
+        Append a new item to the list
+        """
         self.items.append(DollarListWriter().create_dollar_item(item))
 
     def to_bytes(self):
