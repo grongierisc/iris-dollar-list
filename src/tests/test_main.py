@@ -134,7 +134,8 @@ class TestDollarWriter(unittest.TestCase):
     def test_write_long_long_length(self):
         dollar_list = DollarList()
         dollar_list.append('A'*256*500)
-        self.assertEqual(dollar_list.to_bytes(),b'\x00\x00\x00\x01\xf4\x01\x00\x01' + b'\x41'*256*500)
+        self.assertEqual(dollar_list.to_bytes(),b'\x00\x00\x00\x01\xf4\x01\x00\x01'
+                                              + b'\x41'*256*500)
 
     def test_write_null(self):
         dollar_list = DollarList()
