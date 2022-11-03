@@ -1,5 +1,23 @@
 # Change Log
 
+## [0.9.4] 03-Nov-2022
+
+### Added
+
+- Dunder methods for DollarList
+  - getitem
+  - setitem
+  - add
+  - contains
+  - eq
+  - ne
+  - sizeof
+  - hash
+
+### Fixed
+
+- refactored from_string
+
 ## [0.9.3] 03-Nov-2022
 
 ### Added
