@@ -393,16 +393,16 @@ class DollarList:
                 # remove the new string from the original string
                 # and continue
                 count = 0
-                for i in range(len(string)):
+                for i,value in enumerate(string):
                     if string[i:i+3] == '$lb':
                         count += 1
-                    elif string[i] == ')':
+                    elif value == ')':
                         count -= 1
                     if count == 0:
-                        break
-                item = DollarList.from_string(string[0:i+1])
-                response.append(item)
-                string = string[i+1:]
+                        item = DollarList.from_string(string[0:i+1])
+                        response.append(item)
+                        string = string[i+1:]
+
             elif string[0] == '"':
                 # string
                 end = string.find('"',1)
@@ -516,8 +516,3 @@ class DollarList:
     # build iterator for values
     def __iter__(self):
         return iter(self.items)
-
-
-if __name__ == '__main__':
-    dollar_list = DollarList.from_string('$lb(3,"test",4,"test2",$lb(5,"test3",$lb("test")),$lb(""))')
-    print(dollar_list)
