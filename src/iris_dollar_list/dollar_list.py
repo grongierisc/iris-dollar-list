@@ -370,50 +370,64 @@ class DollarList:
         Create a DollarList from a string
         String input is in the format of:
         $lb(<item1>,<item2>,<item3>,<item4>...)
-        where <item> is a string, integer, or another DollarList
-        First count the number of sublist by counting the number of $lb()
-        Then create a sub string for each sublist
+        where item can be:
+        - a string
+        - a number
+        - a list
+        A list can be nested
+        Parse the string item by item. Move in the string until the next ',' or ')'
         """
-        dollar_list = DollarList()
-        # remove the $lb() from the string
-        string = string[4:-1]
-        # count the number of $lb() in the string
-        sublists = string.count("$lb(")
-        # if there are no sublists
-        if sublists == 0:
-            # create a list of items
-            items = string.split(",")
-            # create a DollarList
-            for item in items:
-                # if item starts with '"' then it is a string
-                if item.startswith('"'):
-                    # remove the '"' from the string
-                    item = item[1:-1]
-                    dollar_list.append(item)
-                if len(item) == 0:
-                    dollar_list.append(None)
-                # if item does not contain a '.' then it is an integer
-                elif "." not in item:
-                    dollar_list.append(int(item))
-                # if item contains a '.' then it is a float
-                elif "." in item:
-                    dollar_list.append(float(item))
-                else:
-                    raise DollarListException("Invalid item type")
-        else:
-            # create a list of items
-            # extract the first sublist from the string that that starts with $lb( and ends with )
-            # then remove the sublist from the string
-            # then repeat until there are no more sublists
-            while sublists > 0:
-                start = string.find("$lb(")
-                end = string.find(")")
-                sublist = string[start:end+1]
-                string = string.replace(sublist,"")
-                dollar_list.append(DollarList.from_string(sublist))
-                sublists -= 1
+        if string[0:3] != '$lb':
+            raise DollarListException("Invalid string format")
+        string = string[3:]
+        if string[0] != '(':
+            raise DollarListException("Invalid string format")
+        string = string[1:]
+        response = DollarList()
+        while string[0] != ')':
+            if string[0] == '$':
+                # list
+                # count the number of '$lb(' and ')' to find the end of the list
+                # and create a new string
+                # then call DollarList.from_string
+                # remove the new string from the original string
+                # and continue
+                count = 0
+                for i in range(len(string)):
+                    if string[i:i+3] == '$lb':
+                        count += 1
+                    elif string[i] == ')':
+                        count -= 1
+                    if count == 0:
+                        break
+                item = DollarList.from_string(string[0:i+1])
+                response.append(item)
+                string = string[i+1:]
+            elif string[0] == '"':
+                # string
+                end = string.find('"',1)
+                response.append(string[1:end])
+                string = string[end+1:]
+            elif string[0] == '-':
+                # negative int
+                end = string.find(',',1)
+                if end == -1:
+                    end = string.find(')')
+                response.append(int(string[0:end]))
+                string = string[end:]
+            elif string[0].isdigit():
+                # positive int
+                end = string.find(',',1)
+                if end == -1:
+                    end = string.find(')')
+                response.append(int(string[0:end]))
+                string = string[end:]
+            else:
+                raise DollarListException("Invalid string format")
+            if string[0] == ',':
+                string = string[1:]
+        return response
 
-        return dollar_list
 
     def to_bytes(self):
         """
@@ -505,5 +519,5 @@ class DollarList:
 
 
 if __name__ == '__main__':
-    dollar_list = DollarList.from_string('$lb("test",$lb(4))')
+    dollar_list = DollarList.from_string('$lb(3,"test",4,"test2",$lb(5,"test3",$lb("test")),$lb(""))')
     print(dollar_list)
