@@ -18,7 +18,7 @@ def main():
         description='iris-dollar-list',
         long_description=long_description,
         long_description_content_type='text/markdown',
-        version='0.9.3',
+        version='0.9.4',
         author='grongier',
         author_email='guillaume.rongier@intersystems.com',
         keywords='iris-dollar-list',
