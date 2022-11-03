@@ -369,6 +369,18 @@ class TestDollarListFromBytesError(unittest.TestCase):
         with self.assertRaises(ValueError):
             DollarList.from_bytes(data)
 
+class TestDollarListFloat(unittest.TestCase):
+
+    def test_float_from_bytes(self):
+        data = b'\x05\x06\xfe\x3a\x01'
+        reader = DollarList.from_bytes(data)
+        self.assertEqual(reader.to_list()[0],3.14)
+
+    def test_negfloat_from_bytes(self):
+        data = b'\x05\x07\xFE\xC6\xFE'
+        reader = DollarList.from_bytes(data)
+        self.assertEqual(reader.to_list()[0],-3.14)
+
 if __name__ == '__main__':
     # init the data
     unittest.main()

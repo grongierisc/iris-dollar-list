@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import struct
 from typing import Any,List
+import decimal
 
 class Dollartype(Enum):
     ITEM_UNDEF = -1
@@ -138,7 +139,7 @@ class DollarListReader:
         elif typ == Dollartype.ITEM_POSNUM.value:
             val = self.get_posnum(raw_value)
         elif typ == Dollartype.ITEM_NEGNUM.value:
-            val = struct.unpack('<q',raw_value)[0]
+            val = self.get_negnum(raw_value)
         elif typ == Dollartype.ITEM_DOUBLE.value:
             val = struct.unpack('<d',raw_value)[0]
         elif typ == Dollartype.ITEM_COMPACT_DOUBLE.value:
@@ -170,12 +171,22 @@ class DollarListReader:
         return int.from_bytes(raw_value, "little",signed=True)
 
     def get_posnum(self,raw_value):
-        # parse the bytes as a float
-        # using IEEE 754 standard
-        return struct.unpack('<d',raw_value)[0]
+        num = self.get_posint(raw_value[1:])
+        scale = raw_value[0]
+        if scale > 127:
+            scale -= 256
+        decstr = str(num) + "E" + str(scale)
+        dec = decimal.Decimal(decstr)
+        return float(dec)
 
     def get_negnum(self,raw_value):
-        return struct.unpack('<q',raw_value)[0]
+        num = self.get_negint(raw_value[1:])
+        scale = raw_value[0]
+        if scale > 127:
+            scale -= 256
+        decstr = str(num) + "E" + str(scale)
+        dec = decimal.Decimal(decstr)
+        return float(dec)
 
     def get_item(self,offset) -> DollarItem:
         item = DollarItem()
