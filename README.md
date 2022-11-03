@@ -33,8 +33,9 @@ It is compatible with embedded python and native api.
     - [1.3.1. append](#131-append)
     - [1.3.2. from_bytes](#132-from_bytes)
     - [1.3.3. from_list](#133-from_list)
-    - [1.3.4. to_bytes](#134-to_bytes)
-    - [1.3.5. to_list](#135-to_list)
+    - [1.3.4. from_string](#134-from_string)
+    - [1.3.5. to_bytes](#135-to_bytes)
+    - [1.3.6. to_list](#136-to_list)
 - [2. $list](#2-list)
   - [2.1. What is $list ?](#21-what-is-list-)
   - [2.2. How it works ?](#22-how-it-works-)
@@ -113,7 +114,7 @@ my_list.append(DollarList.from_list(["list",2]))
 my_list.append(DollarItem(dollar_type=1, value="item",
                           raw_value=b"item",
                           buffer=b'\x06\x01item'))
-print(DollarList.from_bytes(my_list.to_bytes()))
+print(DollarList.from_bytes(my_list))
 # $lb("one",1,$lb("list",2),"item")
 ```
 
@@ -136,7 +137,19 @@ print(DollarList.from_list(["list",2]))
 # $lb("list",2)
 ```
 
-###  1.3.4. to_bytes
+### 1.3.4. from_string
+
+Create a DollarList from a string.
+
+```python
+str_list = DollarList.from_string('$lb("test",$lb(4))')
+print(str_list)
+# $lb("test",$lb(4))
+print(str_list.to_list())
+# ['test', [4]]
+```
+
+###  1.3.5. to_bytes
 
 Convert the DollarList to bytes.
 
@@ -146,7 +159,7 @@ print(my_list.to_bytes())
 # b'\x06\x01list\x03\x04\x02'
 ```
 
-###  1.3.5. to_list
+###  1.3.6. to_list
 
 Convert the DollarList to a list.
 
@@ -171,12 +184,27 @@ $list is a binary format that store list of values. Each value is stored in a bl
 ### 2.2.1. Header
 
 The header is composed of a size and a type. 
+The header can have a size of 2, 4 or 8 bytes.
+
+Three types of header are possible :
+ * 2 bytes header
+   * 1 byte for the size
+   * 1 byte for the type
+ * 4 bytes header
+   * 1 bytes of \x00
+   * 2 bytes for the size
+   * 1 byte for the type
+ * 8 bytes header
+   * 3 bytes of \x00
+   * 4 bytes for the size
+   * 1 byte for the type
 
 #### 2.2.1.1. Size
 
-The size dictates the size of the block. The size is stored in `N` bytes.
-`N` is determined by the number of bytes that are zero in the first bytes of the header.
-The size is stored in little endian.
+There is 3 types of size :
+ * 1 byte, if the first byte is not \x00
+ * 2 bytes, if the first byte is \x00 and the int value of the second two bytes is not 0
+ * 4 bytes, else (the first 3 bytes are \x00)
 
 #### 2.2.1.2. Type
 
