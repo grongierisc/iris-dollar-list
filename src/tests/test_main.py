@@ -268,6 +268,106 @@ class TestDollarListFromString(unittest.TestCase):
         dollar_list = DollarList.from_string('$lb(-3)')
         self.assertEqual(dollar_list.to_bytes(),b'\x03\x05\xfd')
 
+class TestDollarListDunder(unittest.TestCase):
+
+    def test_eq_one_item(self):
+        dollar_list1 = DollarList.from_string('$lb("t")')
+        dollar_list2 = DollarList.from_string('$lb("t")')
+        self.assertTrue(dollar_list1 == dollar_list2)
+
+    def test_ne_one_item(self):
+        dollar_list1 = DollarList.from_string('$lb("t")')
+        dollar_list2 = DollarList.from_string('$lb("t",3)')
+        self.assertTrue(dollar_list1 != dollar_list2)
+
+    def test_add(self):
+        dollar_list1 = DollarList.from_string('$lb("t",3)')
+        dollar_list2 = DollarList.from_string('$lb(4)')
+        dollar_list3 = dollar_list1 + dollar_list2
+        self.assertEqual(dollar_list3.to_bytes(),b'\x03\x01t\x03\x04\x03\x03\x04\x04')
+
+    def test_getitem(self):
+        dollar_list = DollarList.from_string('$lb("t",3)')
+        self.assertEqual(dollar_list[0].value,'t')
+        self.assertEqual(dollar_list[1].value,3)
+
+    def test_setitem(self):
+        dollar_list = DollarList.from_string('$lb("t",3)')
+        dollar_list[0] = 'test'
+        dollar_list[1] = 4
+        self.assertEqual(dollar_list.to_bytes(),b'\x06\x01test\x03\x04\x04')
+
+    def test_delitem(self):
+        dollar_list = DollarList.from_string('$lb("t",3)')
+        del dollar_list[0]
+        self.assertEqual(dollar_list.to_bytes(),b'\x03\x04\x03')
+
+    def test_len(self):
+        dollar_list = DollarList.from_string('$lb("t",3)')
+        self.assertEqual(len(dollar_list),2)
+
+    def test_iter(self):
+        dollar_list = DollarList.from_string('$lb("t",3)')
+        value = [x.value for x in dollar_list]
+        self.assertEqual(value,['t',3])
+
+    def test_contains(self):
+        dollar_list = DollarList.from_string('$lb("t",3)')
+        self.assertTrue('t' in dollar_list)
+        self.assertFalse(4 in dollar_list)
+
+    def test_str(self):
+        dollar_list = DollarList.from_string('$lb("t",3)')
+        self.assertEqual(str(dollar_list),'$lb("t",3)')
+
+    def test_repr(self):
+        dollar_list = DollarList.from_string('$lb("t",3)')
+        self.assertEqual(repr(dollar_list),'$lb("t",3)')
+
+
+class TestDollarListFromBytes(unittest.TestCase):
+
+    def test_empty(self):
+        data = b'\x02\x01'
+        reader = DollarList.from_bytes(data)
+        self.assertEqual(reader.to_bytes(),data)
+
+    def test_one_item(self):
+        data = b'\x03\x01t'
+        reader = DollarList.from_bytes(data)
+        self.assertEqual(reader.to_bytes(),data)
+
+    def test_two_items(self):
+        data =  b'\x03\x01t\x03\x04\x03'
+        reader = DollarList.from_bytes(data)
+        self.assertEqual(reader.to_bytes(),data)
+
+    def test_embedded_list(self):
+        data = b'\x06\x01test\x05\x01\x03\x04\x04'
+        reader = DollarList.from_bytes(data)
+        self.assertEqual(reader.to_bytes(),data)
+
+    def test_embedded_list_with_string(self):
+        data = b'\x06\x01test\x05\x01\x03\x01t'
+        reader = DollarList.from_bytes(data)
+        self.assertEqual(reader.to_bytes(),data)
+
+    def test_negative_integer(self):
+        data = b'\x03\x05\xfd'
+        reader = DollarList.from_bytes(data)
+        self.assertEqual(reader.to_bytes(),data)
+
+class TestDollarListFromBytesError(unittest.TestCase):
+
+    def test_empty(self):
+        data = b'\x02'
+        with self.assertRaises(ValueError):
+            DollarList.from_bytes(data)
+
+    def test_one_item(self):
+        data = b'\x03\x01'
+        with self.assertRaises(ValueError):
+            DollarList.from_bytes(data)
 
 if __name__ == '__main__':
     # init the data

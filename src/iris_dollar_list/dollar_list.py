@@ -84,7 +84,7 @@ class DollarListReader:
             length = self.buffer[offset]
             meta_offset = 2
         if length > len(self.buffer) or length <= 0:
-            raise DollarListException("Invalid length")
+            raise ValueError("Invalid length")
         return length, meta_offset
 
     def get_item_type(self,offset,meta_offset=None):
@@ -93,7 +93,7 @@ class DollarListReader:
         typ = self.buffer[offset+meta_offset-1]
             # if result is not between 0 and 9, then raise an exception
         if typ < 0 or typ > 9:
-            raise DollarListException("Invalid type")
+            raise ValueError("Invalid type")
         return typ
 
     def get_item_raw_value(self,offset,meta_offset=None,length=None):
@@ -157,7 +157,7 @@ class DollarListReader:
             return None
         try:
             return DollarList.from_bytes(raw_value)
-        except DollarListException:
+        except ValueError:
             try:
                 return raw_value.decode('ascii')
             except UnicodeDecodeError:
@@ -387,15 +387,17 @@ class DollarList:
                 if count == 0:
                     item = DollarList.from_string(string[0:i+1])
                     return item,string[i+2:]
+            raise DollarListException("Invalid string")
 
         def parse_item(string):
             for i,value in enumerate(string):
-                if value == ',' or value == ')':
+                if value in (',' , ')'):
                     if string[0] == '"':
                         item = DollarListWriter().create_dollar_item(string[1:i-1])
                     else:
                         item = DollarListWriter().create_dollar_item(int(string[0:i]))
                     return item,string[i+1:]
+            raise DollarListException("Invalid string")
 
         if string[0:3] != '$lb':
             raise DollarListException("Invalid string format")
@@ -505,3 +507,34 @@ class DollarList:
     # build iterator for values
     def __iter__(self):
         return iter(self.items)
+
+    def __getitem__(self, index):
+        return self.items[index]
+
+    def __setitem__(self, index, value):
+        self.items[index] = DollarListWriter().create_dollar_item(value)
+
+    def __delitem__(self, index):
+        del self.items[index]
+
+    def __contains__(self, item):
+        return DollarListWriter().create_dollar_item(item) in self.items
+
+    def __eq__(self, other):
+        return self.items == other.items
+
+    def __ne__(self, other):
+        return self.items != other.items
+
+    def __add__(self, other):
+        result = self.items + other.items
+        return DollarList(result)
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __hash__(self):
+        return hash(self.items)
+
+    def __sizeof__(self):
+        return len(self.items)
