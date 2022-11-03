@@ -241,6 +241,28 @@ class TestDollarList(unittest.TestCase):
         dollar_list = DollarList.from_list(['t'])
         self.assertEqual(dollar_list.to_bytes(),b'\x03\x01t')
 
+class TestDollarListFromString(unittest.TestCase):
+
+    def test_empty(self):
+        dollar_list = DollarList.from_string('$lb()')
+        self.assertEqual(dollar_list.to_bytes(),b'\x02\x01')
+
+    def test_one_item(self):
+        dollar_list = DollarList.from_string('$lb("t")')
+        self.assertEqual(dollar_list.to_bytes(),b'\x03\x01t')
+
+    def test_two_items(self):
+        dollar_list = DollarList.from_string('$lb("t",3)')
+        self.assertEqual(dollar_list.to_bytes(),b'\x03\x01t\x03\x04\x03')
+
+    def test_embedded_list(self):
+        dollar_list = DollarList.from_string('$lb("test",$lb(4))')
+        self.assertEqual(dollar_list.to_bytes(),b'\x06\x01test\x05\x01\x03\x04\x04')
+
+    def test_embedded_list_with_string(self):
+        dollar_list = DollarList.from_string('$lb("test",$lb("t"))')
+        self.assertEqual(dollar_list.to_bytes(),b'\x06\x01test\x05\x01\x03\x01t')
+
 
 if __name__ == '__main__':
     # init the data

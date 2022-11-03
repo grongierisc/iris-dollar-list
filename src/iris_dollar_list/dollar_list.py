@@ -364,6 +364,57 @@ class DollarList:
         """
         self.items.append(DollarListWriter().create_dollar_item(item))
 
+    @staticmethod
+    def from_string(string):
+        """
+        Create a DollarList from a string
+        String input is in the format of:
+        $lb(<item1>,<item2>,<item3>,<item4>...)
+        where <item> is a string, integer, or another DollarList
+        First count the number of sublist by counting the number of $lb()
+        Then create a sub string for each sublist
+        """
+        dollar_list = DollarList()
+        # remove the $lb() from the string
+        string = string[4:-1]
+        # count the number of $lb() in the string
+        sublists = string.count("$lb(")
+        # if there are no sublists
+        if sublists == 0:
+            # create a list of items
+            items = string.split(",")
+            # create a DollarList
+            for item in items:
+                # if item starts with '"' then it is a string
+                if item.startswith('"'):
+                    # remove the '"' from the string
+                    item = item[1:-1]
+                    dollar_list.append(item)
+                if len(item) == 0:
+                    dollar_list.append(None)
+                # if item does not contain a '.' then it is an integer
+                elif "." not in item:
+                    dollar_list.append(int(item))
+                # if item contains a '.' then it is a float
+                elif "." in item:
+                    dollar_list.append(float(item))
+                else:
+                    raise DollarListException("Invalid item type")
+        else:
+            # create a list of items
+            # extract the first sublist from the string that that starts with $lb( and ends with )
+            # then remove the sublist from the string
+            # then repeat until there are no more sublists
+            while sublists > 0:
+                start = string.find("$lb(")
+                end = string.find(")")
+                sublist = string[start:end+1]
+                string = string.replace(sublist,"")
+                dollar_list.append(DollarList.from_string(sublist))
+                sublists -= 1
+
+        return dollar_list
+
     def to_bytes(self):
         """
         Convert a DollarList to bytes
@@ -380,12 +431,14 @@ class DollarList:
         For each item in the list, create a DollarItem
         """
         dollar_list = DollarList()
-        dlw = DollarListWriter()
-        if len(python_list) == 0 or python_list is None:
-            dollar_list.items.append(dlw.create_dollar_item(None))
+        if isinstance(python_list, list):
+            if len(python_list) > 0:
+                for item in python_list:
+                    dollar_list.append(item)
+            else:
+                dollar_list.append(None)
         else:
-            for item in python_list:
-                dollar_list.items.append(dlw.create_dollar_item(item))
+            raise DollarListException("Invalid input type")
         return dollar_list
 
     # add to the dataclass a new constructor from_bytes
@@ -449,3 +502,8 @@ class DollarList:
     # build iterator for values
     def __iter__(self):
         return iter(self.items)
+
+
+if __name__ == '__main__':
+    dollar_list = DollarList.from_string('$lb("test",$lb(4))')
+    print(dollar_list)
