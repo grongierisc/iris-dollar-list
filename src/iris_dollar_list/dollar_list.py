@@ -377,6 +377,26 @@ class DollarList:
         A list can be nested
         Parse the string item by item. Move in the string until the next ',' or ')'
         """
+        def parse_list(string):
+            count = 0
+            for i,value in enumerate(string):
+                if string[i:i+4] == '$lb(':
+                    count += 1
+                elif value == ')':
+                    count -= 1
+                if count == 0:
+                    item = DollarList.from_string(string[0:i+1])
+                    return item,string[i+2:]
+
+        def parse_item(string):
+            for i,value in enumerate(string):
+                if value == ',' or value == ')':
+                    if string[0] == '"':
+                        item = DollarListWriter().create_dollar_item(string[1:i-1])
+                    else:
+                        item = DollarListWriter().create_dollar_item(int(string[0:i]))
+                    return item,string[i+1:]
+
         if string[0:3] != '$lb':
             raise DollarListException("Invalid string format")
         string = string[3:]
@@ -384,50 +404,19 @@ class DollarList:
             raise DollarListException("Invalid string format")
         string = string[1:]
         response = DollarList()
-        while string[0] != ')':
+        while len(string) > 0:
             if string[0] == '$':
                 # list
-                # count the number of '$lb(' and ')' to find the end of the list
-                # and create a new string
-                # then call DollarList.from_string
-                # remove the new string from the original string
-                # and continue
-                count = 0
-                for i,value in enumerate(string):
-                    if string[i:i+3] == '$lb':
-                        count += 1
-                    elif value == ')':
-                        count -= 1
-                    if count == 0:
-                        item = DollarList.from_string(string[0:i+1])
-                        response.append(item)
-                        string = string[i+1:]
-
-            elif string[0] == '"':
-                # string
-                end = string.find('"',1)
-                response.append(string[1:end])
-                string = string[end+1:]
-            elif string[0] == '-':
-                # negative int
-                end = string.find(',',1)
-                if end == -1:
-                    end = string.find(')')
-                response.append(int(string[0:end]))
-                string = string[end:]
-            elif string[0].isdigit():
-                # positive int
-                end = string.find(',',1)
-                if end == -1:
-                    end = string.find(')')
-                response.append(int(string[0:end]))
-                string = string[end:]
+                item, string = parse_list(string)
+                response.append(item)
             else:
-                raise DollarListException("Invalid string format")
-            if string[0] == ',':
-                string = string[1:]
+                # item
+                item, string = parse_item(string)
+                response.append(item)
         return response
 
+    def __len__(self):
+        return len(self.items)
 
     def to_bytes(self):
         """
