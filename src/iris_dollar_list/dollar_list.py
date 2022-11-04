@@ -4,7 +4,7 @@
 # to store the data in a list of objects
 #
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 import struct
 from typing import Any,List
@@ -349,7 +349,7 @@ class DollarListWriter:
         """
         Create a DollarItem from a float
         """
-        pass
+        
 
     def get_meta_value_length(self,raw_value):
         """
