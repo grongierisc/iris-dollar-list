@@ -345,6 +345,12 @@ class DollarListWriter:
             buffer=buffer
         )
 
+    def create_from_float(self,item):
+        """
+        Create a DollarItem from a float
+        """
+        pass
+
     def get_meta_value_length(self,raw_value):
         """
         Get the length of the raw value
@@ -364,10 +370,28 @@ class DollarListWriter:
             raise DollarListException("Value is too long")
         return response
 
-@dataclass
 class DollarList:
 
-    items: List[DollarItem] = field(default_factory=list)
+    items: List[DollarItem] = []
+
+    def __init__(self, value=None):
+        if value is not None:
+            if isinstance(value, bytes):
+                for item in self.from_bytes(value):
+                    self.items.append(item)
+            elif isinstance(value, list):
+                for item in self.from_list(value):
+                    self.items.append(item)
+            elif isinstance(value, str):
+                for item in self.from_string(value):
+                    self.items.append(item)
+            elif isinstance(value, DollarList):
+                for item in value.items:
+                    self.items.append(item)
+            else:
+                raise DollarListException("Invalid value type")
+        else:
+            self.items = []
 
     def append(self,item):
         """
@@ -493,6 +517,8 @@ class DollarList:
             response += ","
         if len(items) > 0:
             response = response[:-1]
+        if len(items) == 0:
+            response += '""'
         response += ")"
         return response
 
