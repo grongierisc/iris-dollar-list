@@ -1,5 +1,19 @@
 # Change Log
 
+
+## [0.9.5] 04-Nov-2022
+
+### Added
+
+- Added support of __init__ in DollarList
+  - Can now create a DollarList from a list, bytes, string, or another DollarList
+- Added support of float in DollarList
+
+### Fixed
+
+- Fixed to_string() in DollarList
+  - Now returns $lb("") instead of $lb()
+
 ## [0.9.4] 03-Nov-2022
 
 ### Added
