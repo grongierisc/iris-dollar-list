@@ -381,6 +381,16 @@ class TestDollarListFloat(unittest.TestCase):
         reader = DollarList.from_bytes(data)
         self.assertEqual(reader.to_list()[0],-3.14)
 
+    def test_float_to_bytes(self):
+        data = [3.14]
+        reader = DollarList.from_list(data)
+        self.assertEqual(reader.to_bytes(),b'\x05\x06\xfe\x3a\x01')
+
+    def test_negfloat_to_bytes(self):
+        data = [-3.14]
+        reader = DollarList.from_list(data)
+        self.assertEqual(reader.to_bytes(),b'\x05\x07\xFE\xC6\xFE')
+
 if __name__ == '__main__':
     # init the data
     unittest.main()
