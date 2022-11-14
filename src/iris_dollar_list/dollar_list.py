@@ -246,7 +246,7 @@ class DollarListWriter:
         elif isinstance(item,int):
             rsp = self.create_from_int(item)
         elif isinstance(item,float):
-            raise DollarListException("Floats are not supported")
+            rsp = self.create_from_float(item)
         elif isinstance(item,bytes):
             raise DollarListException("Bytes are not supported")
         else:
@@ -349,7 +349,60 @@ class DollarListWriter:
         """
         Create a DollarItem from a float
         """
-        
+        rsp = None
+        if item < 0:
+            rsp = self.create_negnum(item)
+        else:
+            rsp = self.create_posnum(item)
+        return rsp
+
+    def create_negnum(self,item):
+        """
+        Create a DollarItem from a negative float
+        """
+        # convert the float to a positive interger with a scale
+        # 1.2345 -> 12345 with scale 4
+
+        # get the scale
+        scale = len(str(item).split('.')[1]) * -1
+        # convert to int
+        num = int(item * (10 ** (scale * -1)))
+        # create the item
+        raw_value = scale.to_bytes(1, "little",signed=True)+num.to_bytes((num.bit_length() + 7) // 8, "little",signed=True)
+
+        item_value = item
+        lenght = self.get_meta_value_length(raw_value)
+        buffer = lenght + Dollartype.ITEM_NEGNUM.value.to_bytes(1, "little") + raw_value
+        return DollarItem(
+            dollar_type=Dollartype.ITEM_NEGNUM.value,
+            value=item_value,
+            raw_value=raw_value,
+            buffer=buffer
+        )
+
+    def create_posnum(self,item):
+        """
+        Create a DollarItem from a positive float
+        """
+        # convert the float to a positive interger with a scale
+        # 1.2345 -> 12345 with scale 4
+
+        # get the scale
+        scale = len(str(item).split('.')[1]) * -1
+        # convert to int
+        num = int(item * (10 ** (scale * -1)))
+        # create the item
+        raw_value = scale.to_bytes(1, "little",signed=True)+num.to_bytes((num.bit_length() + 7) // 8, "little")
+
+        item_value = item
+        lenght = self.get_meta_value_length(raw_value)
+        buffer = lenght + Dollartype.ITEM_POSNUM.value.to_bytes(1, "little") + raw_value
+        return DollarItem(
+            dollar_type=Dollartype.ITEM_POSNUM.value,
+            value=item_value,
+            raw_value=raw_value,
+            buffer=buffer
+        )
 
     def get_meta_value_length(self,raw_value):
         """
