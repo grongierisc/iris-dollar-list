@@ -1,13 +1,15 @@
 # Change Log
 
 
-## [0.9.5] 04-Nov-2022
+## [0.9.5] 14-Nov-2022
 
 ### Added
 
 - Added support of __init__ in DollarList
   - Can now create a DollarList from a list, bytes, string, or another DollarList
 - Added support of float in DollarList
+  - Read
+  - Write
 
 ### Fixed
 
