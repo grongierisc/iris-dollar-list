@@ -368,7 +368,8 @@ class DollarListWriter:
         # convert to int
         num = int(item * (10 ** (scale * -1)))
         # create the item
-        raw_value = scale.to_bytes(1, "little",signed=True)+num.to_bytes((num.bit_length() + 7) // 8, "little",signed=True)
+        raw_value = (scale.to_bytes(1, "little",signed=True)
+                    +num.to_bytes((num.bit_length() + 7) // 8, "little",signed=True))
 
         item_value = item
         lenght = self.get_meta_value_length(raw_value)
@@ -392,7 +393,8 @@ class DollarListWriter:
         # convert to int
         num = int(item * (10 ** (scale * -1)))
         # create the item
-        raw_value = scale.to_bytes(1, "little",signed=True)+num.to_bytes((num.bit_length() + 7) // 8, "little")
+        raw_value = (scale.to_bytes(1, "little",signed=True)
+                    +num.to_bytes((num.bit_length() + 7) // 8, "little"))
 
         item_value = item
         lenght = self.get_meta_value_length(raw_value)
